@@ -1,0 +1,32 @@
+<title>Cartmates Prototype</title>
+<style>/*CSS*/</style>
+<div class="pv">
+  <header class="pv-head">
+    <div>
+      <h1>Cartmates</h1>
+      <p>Shop together, save together. This is the real extension popup and party bar on a pretend shop.</p>
+    </div>
+    <div class="pv-tools">
+      <span id="where" role="status">Pick a step on the left, or press Next.</span>
+      <button id="prev" type="button">Back</button>
+      <button id="next" type="button" class="go">Next step</button>
+      <button id="reset" type="button">Reset demo</button>
+      <button id="theme" type="button" aria-pressed="false">Dark mode</button>
+    </div>
+  </header>
+  <nav id="flows" aria-label="Flows"></nav>
+  <main class="pv-shop">
+    <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span id="url"></span></div>
+    <div id="stage-shop"><div id="shop"></div></div>
+  </main>
+  <aside class="pv-side">
+    <div class="popup-frame"><div id="popup" class="cm"></div></div>
+    <div class="sims">
+      <h3>Make your friends do things</h3>
+      <p>Open a list or the Party tab, then try these.</p>
+      <div id="sims"></div>
+      <div id="says" role="status"></div>
+    </div>
+  </aside>
+</div>
+<script>/*JS*/</script>

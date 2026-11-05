@@ -1,0 +1,20 @@
+{
+  "name": "cartmates-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cartmates: browse together, save together. A browser extension for shared wishlists.",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "node --test test/*.test.js",
+    "build:web": "node scripts/build-web.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "jsdom": "^29.1.1"
+  }
+}

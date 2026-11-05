@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Cartmates",
+  "version": "0.1.0",
+  "description": "Shop together, save together. Live parties with presence and chat, and a shared wishlist.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.supabase.co/*"
+  ],
+  "action": {
+    "default_title": "Cartmates",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
