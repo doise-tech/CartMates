@@ -14,10 +14,10 @@ export const SHOP = 'hearthandco.example';
 export const CATALOG = [
   { slug: 'olive-oil', title: 'Cold-pressed olive oil, 1 L', price: 899, hue: '#dfe8b0', shape: 'bottle' },
   { slug: 'tiffin-set', title: 'Brass tiffin set', price: 1299, hue: '#f0dcae', shape: 'tin' },
-  { slug: 'cotton-throw', title: 'Cotton throw blanket', price: 1599, hue: '#f3cfc4', shape: 'throw' },
-  { slug: 'pour-over-kettle', title: 'Pour-over kettle', price: 2499, hue: '#cfd9ea', shape: 'kettle' },
+  { slug: 'cotton-throw', title: 'Cotton throw blanket', price: 1599, hue: '#f3cfc4', shape: 'throw', variant: 'Colour: Blush · Size: Queen' },
+  { slug: 'pour-over-kettle', title: 'Pour-over kettle', price: 2499, hue: '#cfd9ea', shape: 'kettle', variant: 'Colour: Matte blue · Size: 1 L' },
   { slug: 'terracotta-planter', title: 'Terracotta planter', price: 449, hue: '#f2c9b0', shape: 'planter' },
-  { slug: 'linen-napkins', title: 'Linen napkins, set of 4', price: 649, hue: '#e4dcf0', shape: 'napkin' },
+  { slug: 'linen-napkins', title: 'Linen napkins, set of 4', price: 649, hue: '#e4dcf0', shape: 'napkin', variant: 'Colour: Lilac' },
 ].map((p) => ({ ...p, url: `https://${SHOP}/p/${p.slug}`, brand: 'Hearth & Co.', image_url: null, currency: 'INR', store_domain: SHOP }));
 
 const bySlug = (slug) => CATALOG.find((p) => p.slug === slug);
@@ -34,7 +34,7 @@ function seed() {
   const item = (slug, by, status, minutesAgo, extra = {}) => {
     const p = bySlug(slug);
     return {
-      id: uid('it'), list_id: 'l1', product: clone(p), price_at_save: p.price, currency_at_save: 'INR', quantity: 1, note: null, variant: null,
+      id: uid('it'), list_id: 'l1', product: clone(p), price_at_save: p.price, currency_at_save: 'INR', quantity: 1, note: null, variant: p.variant ?? null,
       status, claimed_by: null, bought_at: null, added_by: by, party_id: 'pa1', created_at: ago(minutesAgo * MIN), reactions: [], tag_ids: [], ...extra,
     };
   };
@@ -117,7 +117,7 @@ export function createMockStore({ signedIn = true } = {}) {
   const newItem = (listId, partyId, p, by) => {
     const row = {
       id: uid('it'), list_id: listId, product: { url: p.url, title: p.title, brand: p.brand ?? null, image_url: p.image_url ?? null, price: p.price ?? null, currency: p.currency ?? null, store_domain: new URL(p.url).hostname, hue: p.hue, shape: p.shape },
-      price_at_save: p.price ?? null, currency_at_save: p.currency ?? null, quantity: 1, note: null, variant: null, status: 'saved', claimed_by: null, bought_at: null,
+      price_at_save: p.price ?? null, currency_at_save: p.currency ?? null, quantity: 1, note: null, variant: p.variant ?? null, status: 'saved', claimed_by: null, bought_at: null,
       added_by: by, party_id: partyId ?? null, created_at: new Date().toISOString(), reactions: [], tag_ids: [],
     };
     db.items[listId] = db.items[listId] || [];

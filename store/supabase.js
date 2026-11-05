@@ -212,7 +212,7 @@ export const store = {
         p_price: p.price ?? null,
         p_currency: p.currency ?? null,
         p_brand: p.brand ?? null,
-        p_variant: null,
+        p_variant: p.variant ?? null,
         p_quantity: 1,
         p_note: null,
         p_party_id: partyId ?? null,

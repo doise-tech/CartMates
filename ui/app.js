@@ -453,6 +453,7 @@ export function createApp(root, store, opts = {}) {
       h('div', { class: 'col tight' },
         h('h2', null, i.product.title),
         h('div', { class: 'row sp' }, h('span', { class: 'price big' }, priceText(i)), h('span', { class: `pill ${i.status}` }, STATUS[i.status])),
+        i.variant ? h('span', { class: 'chips' }, i.variant.split(' · ').map((v) => h('span', { class: 'tag' }, v))) : null,
         h('span', { class: 'sub' }, `Saved by ${nm(i.added_by)} ${ago(i.created_at)}${i.product.brand ? ` · ${i.product.brand}` : ''}`),
         href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, `Open at ${i.product.store_domain || 'the shop'}`) : null),
       h('div', { class: 'card col' }, h('span', { class: 'label' }, 'Buying'), h('div', { class: 'row wrap' }, itemActions(i))),

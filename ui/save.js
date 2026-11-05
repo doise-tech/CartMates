@@ -1,11 +1,12 @@
 import { h, thumb } from '../lib/dom.js';
 import { money } from '../lib/split.js';
+import { parsePrice } from '../lib/product.js';
 import { shareBlock } from './share.js';
 
 // The Pinterest-style card: you are on a product page, pick a list (or make one right here),
 // and it is saved. Then you can share that list. Works any time, with or without a live party.
 export function createSaveCard({ store, getProduct, installUrl, onClose, onView }) {
-  const st = { view: 'pick', user: null, product: null, lists: [], saved: new Set(), picked: null, busy: false, msg: null, err: false };
+  const st = { view: 'pick', user: null, product: null, lists: [], saved: new Set(), picked: null, edit: false, busy: false, msg: null, err: false };
   const el = h('div', { class: 'cm savecard', role: 'dialog', 'aria-label': 'Save to a list' });
   let nameBox = null;
 
@@ -21,7 +22,7 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
   };
 
   async function open() {
-    st.view = 'pick'; st.msg = null; st.picked = null;
+    st.view = 'pick'; st.msg = null; st.picked = null; st.edit = false;
     st.user = await store.getUser();
     st.product = getProduct();
     if (st.user) {
@@ -87,7 +88,7 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
         link('Save to another list', () => { st.view = 'pick'; st.picked = null; draw(); })];
     } else {
       body = [header('Save to a list'), banner,
-        p ? h('div', { class: 'row' }, thumb(p, 'mini'), h('span', { class: 'col tight grow0' }, h('span', { class: 'clip2' }, p.title), p.price != null ? h('span', { class: 'price' }, money(p.price, p.currency || st.user.preferred_currency || 'INR')) : h('span', { class: 'sub' }, 'No price found'))) : null,
+        p ? detected(p) : null,
         st.lists.length ? h('div', { class: 'col' }, st.lists.map((l) => {
           const has = st.saved.has(l.id);
           return h('button', { class: 'card rowcard', type: 'button', disabled: st.busy, 'aria-label': has ? `${l.name}, already saved. Share or view it` : `Save to ${l.name}`, onClick: () => (has ? showDone(l) : saveTo(l)) },
@@ -101,6 +102,31 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
     }
     el.replaceChildren(h('div', { class: 'body' }, ...body.filter(Boolean)));
     if (prev && nameBox && el.contains(nameBox)) nameBox.value = prev;
+  }
+
+  // What the page told us. Shown up front so you can see it is right, and fix it if it isn't.
+  function detected(p) {
+    const shown = h('div', { class: 'col' },
+      h('div', { class: 'row' }, thumb(p, 'mini'), h('span', { class: 'col tight grow0' },
+        h('span', { class: 'clip2' }, p.title),
+        p.brand ? h('span', { class: 'sub clip' }, p.brand) : null,
+        p.price != null ? h('span', { class: 'price' }, money(p.price, p.currency || st.user.preferred_currency || 'INR')) : h('span', { class: 'sub' }, 'No price found'))),
+      p.variant ? h('span', { class: 'tags' }, p.variant.split(' · ').map((v) => h('span', { class: 'tag' }, v))) : null,
+      link(st.edit ? 'Done' : 'Not right? Edit details', () => { if (st.edit) applyEdit(); else { st.edit = true; draw(); } }));
+    if (!st.edit) return shown;
+    return h('div', { class: 'col' },
+      h('span', { class: 'label' }, 'Name'), h('input', { class: 'field', name: 'title', value: p.title, maxlength: '300', 'aria-label': 'Name' }),
+      h('span', { class: 'label' }, 'Price'), h('input', { class: 'field', name: 'price', value: p.price ?? '', inputmode: 'decimal', placeholder: 'e.g. 1599', 'aria-label': 'Price' }),
+      h('span', { class: 'label' }, 'Colour, size and so on'), h('input', { class: 'field', name: 'variant', value: p.variant ?? '', maxlength: '120', placeholder: 'Colour: White \u00b7 Size: M', 'aria-label': 'Colour, size and so on' }),
+      link('Done', applyEdit));
+  }
+
+  function applyEdit() {
+    const v = (n) => el.querySelector(`input[name="${n}"]`)?.value ?? '';
+    st.product = { ...st.product, title: v('title').trim() || st.product.title, price: v('price').trim() === '' ? null : parsePrice(v('price')), variant: v('variant').trim() || null };
+    if (st.product.price == null) st.product.currency = null;
+    st.edit = false;
+    draw();
   }
 
   function link(label, onClick) { return h('button', { class: 'link', type: 'button', onClick }, label); }

@@ -353,3 +353,23 @@ test('forgot password: link from sign in, asks for an email, then says to check 
   await click('Go to sign in');
   assert.match(text(), /Welcome back/);
 });
+
+test('save card shows what was detected, lets you correct it, and saves the corrected details', async () => {
+  const store = createMockStore();
+  const p = { ...CATALOG.find((c) => c.slug === 'cotton-throw'), price: null, currency: null };
+  const card = createSaveCard({ store, getProduct: () => p });
+  document.getElementById('page').append(card.el);
+  await card.open();
+  assert.match(card.el.textContent, /Colour: Blush/);
+  assert.match(card.el.textContent, /No price found/);
+  const press = async (label) => { [...card.el.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith(label)).click(); await tick(60); };
+  await press('Not right?');
+  card.el.querySelector('input[name="price"]').value = '₹1,599';
+  card.el.querySelector('input[name="variant"]').value = 'Colour: Sand · Size: King';
+  await press('Done');
+  assert.match(card.el.textContent, /1,599/);
+  await press('Housewarming');
+  const item = (await store.loadContext('l1', 'pa1')).items.find((i) => i.product.title === p.title);
+  assert.equal(item.price_at_save, 1599);
+  assert.equal(item.variant, 'Colour: Sand · Size: King');
+});

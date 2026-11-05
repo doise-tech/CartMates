@@ -28,6 +28,7 @@ function drawShop() {
         h('span', { class: 'shop-eyebrow' }, product.brand),
         h('h2', null, product.title),
         h('p', { class: 'shop-price' }, money(product.price, 'INR')),
+        product.variant ? h('p', { class: 'shop-copy' }, product.variant) : null,
         h('p', { class: 'shop-copy' }, 'A made-up product on a made-up shop. In the real extension this is any shopping page you open.'),
         h('button', { class: 'shop-buy', type: 'button', onClick: () => (bar ? bar.toast('This is a demo shop. Use Save item in the Cartmates bar.') : drawer.openSave()) }, 'Add to bag'))),
     h('div', { class: 'shop-more' },
@@ -61,7 +62,7 @@ async function syncBar(active) {
 let current = '';
 const drawer = mountDrawer({
   store, css, parent: $('stage-shop'), position: 'absolute', shadowMode: 'open',
-  getProduct: () => ({ url: product.url, title: product.title, brand: product.brand, image_url: null, price: product.price, currency: 'INR', hue: product.hue, shape: product.shape }),
+  getProduct: () => ({ url: product.url, title: product.title, brand: product.brand, image_url: null, price: product.price, currency: 'INR', variant: product.variant ?? null, hue: product.hue, shape: product.shape }),
   appOpts: {
     hint: 'Preview tip: the code goa7trip01 joins a party, and bday2list0 joins a list.',
     onActive: (a) => syncBar(a),

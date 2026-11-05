@@ -42,6 +42,12 @@ test('parsePrice handles both separators', () => {
   assert.equal(parsePrice('Rs. 1,299.50'), 1299.5);
   assert.equal(parsePrice('1.299,50 €'), 1299.5);
   assert.equal(parsePrice('899'), 899);
+  assert.equal(parsePrice('₹1,979'), 1979);
+  assert.equal(parsePrice('₹1,97,979.00'), 197979);
+  assert.equal(parsePrice('12,50'), 12.5);
+  assert.equal(parsePrice('$1,299'), 1299);
+  assert.equal(parsePrice('1.299'), 1299);
+  assert.equal(parsePrice('9.99'), 9.99);
   assert.equal(parsePrice('free'), null);
   assert.equal(parsePrice(null), null);
 });
