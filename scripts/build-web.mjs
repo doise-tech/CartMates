@@ -6,6 +6,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const out = await build({
   entryPoints: ['web/main.js'], bundle: true, format: 'iife', target: 'es2020', minify: true, write: false,
+  loader: { '.css': 'text' },
   define: { __SUPABASE_URL__: '""', __SUPABASE_ANON_KEY__: '""' },
   logLevel: 'warning',
 });

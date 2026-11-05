@@ -1,3 +1,4 @@
+import { shareBlock } from './share.js';
 import { h, safeUrl, avatar, ago, thumb, heart } from '../lib/dom.js';
 import { money, total, lineMinor, fromMinor, splitEqual, splitByClaim, settleUp } from '../lib/split.js';
 
@@ -9,7 +10,7 @@ const STATUS = { saved: 'Saved', in_cart: 'In cart', claimed: 'Claimed', bought:
 const ONBOARDING = ['welcome', 'signin', 'signup', 'permissions'];
 const MAIN = ['home', 'party', 'cart'];
 const TITLES = {
-  newList: 'New list', startParty: 'Start a party', invite: 'Invite friends', join: 'Join a party', joined: "You're in",
+  newList: 'New list', startParty: 'Start a party', invite: 'Invite friends', join: 'Join with a code', share: 'Share list', joined: "You're in",
   notifications: 'Activity', settings: 'Settings', profile: 'Profile', notifPrefs: 'Notifications', history: 'Past parties',
 };
 const SLIDES = [
@@ -63,7 +64,7 @@ export function createApp(root, store, opts = {}) {
 
   function collect() {
     const out = {};
-    for (const el of root.querySelectorAll('[data-k]')) out[el.dataset.k] = { v: el.value, focus: el === document.activeElement, s: el.selectionStart };
+    for (const el of root.querySelectorAll('[data-k]')) out[el.dataset.k] = { v: el.value, focus: el === root.getRootNode().activeElement, s: el.selectionStart };
     return out;
   }
   function restore(keep) {
@@ -295,6 +296,7 @@ export function createApp(root, store, opts = {}) {
   function home() {
     const live = S.lists.filter((l) => l.live);
     return h('div', { class: 'body' },
+      opts.onSavePage ? h('div', { class: 'card row sp' }, h('span', { class: 'col tight grow0' }, h('b', null, 'Save this page'), h('span', { class: 'sub' }, 'Add what you are looking at to a list.')), btn('Save', () => opts.onSavePage(), 'small primary')) : null,
       h('div', { class: 'row' }, btn('New list', () => go('newList'), 'primary grow'), btn('Join with a code', () => go('join'), 'grow')),
       live.length ? h('div', { class: 'col' }, h('span', { class: 'label' }, 'Live now'),
         live.map((l) => h('div', { class: 'card live col' },
@@ -308,6 +310,15 @@ export function createApp(root, store, opts = {}) {
               h('span', { class: 'col tight' }, h('b', null, l.name), h('span', { class: 'sub' }, l.role === 'owner' ? 'You own this list' : 'Shared with you')),
               l.live ? h('span', { class: 'pill live' }, 'live') : h('span', { class: 'chev' }, '›')))
           : h('div', { class: 'empty' }, h('h3', null, 'Start your first list'), h('p', null, 'A list is where everything you and your friends save ends up.'))));
+  }
+
+  function shareScreen() {
+    const c = S.ctx;
+    if (!c) return h('div', { class: 'body' }, btn('Back to lists', () => go('home', {}, 'root')));
+    return h('div', { class: 'body' }, shareBlock({
+      list: c.list, installUrl: opts.installUrl, canReset: isOwner(), onCopy: (t, done) => copy(t, done),
+      onReset: () => run(async () => { await store.resetInvite(c.list.id); await loadCtx(); say('New code made. The old one no longer works.'); }),
+    }));
   }
 
   function newList() {
@@ -339,6 +350,7 @@ export function createApp(root, store, opts = {}) {
         : h('div', { class: 'card row sp' }, h('span', { class: 'col tight' }, h('b', null, 'Shop together'), h('span', { class: 'sub' }, 'Start a party and browse with friends.')), btn('Start a party', () => go('startParty'), 'small primary'));
     return h('div', { class: 'body' },
       partyCard,
+      h('div', { class: 'card row sp' }, h('span', { class: 'col tight grow0' }, h('b', null, `${c.members.length} ${c.members.length === 1 ? 'person' : 'people'} on this list`), h('span', { class: 'sub' }, 'Invite friends with a code.')), btn('Share list', () => go('share'), 'small primary')),
       h('div', { class: 'chips' }, [['all', 'All'], ...c.tags.map((t) => [t.id, t.name]), ['cart', 'In cart']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.filter === key), onClick: () => { S.filter = key; render(); } }, label))),
       shown.length
         ? h('div', { class: 'grid' }, shown.map((i) => h('div', { class: 'item' },
@@ -464,16 +476,20 @@ export function createApp(root, store, opts = {}) {
 
   function join() {
     return h('form', { class: 'body', onSubmit: (e) => { e.preventDefault(); run(async () => {
-      const party = await store.joinParty(e.target.elements.code.value);
-      await setActive({ listId: party.list_id, partyId: party.id });
-      await openList(party.list_id, party.id);
+      const r = await store.join(e.target.elements.code.value);
+      if (r.kind === 'party') {
+        await setActive({ listId: r.party.list_id, partyId: r.party.id });
+        await openList(r.party.list_id, r.party.id);
+      } else {
+        await openList(r.list.id, null);
+      }
       await refreshHome();
       go('joined', {}, 'replace');
     }); } },
-      h('p', { class: 'sub' }, 'Ask your friend for the invite code from their Cartmates popup.'),
+      h('p', { class: 'sub' }, 'Ask your friend for the invite code. It can be for a list or for a live party.'),
       field('code', { placeholder: 'k7m2x9qa41', 'aria-label': 'Invite code', autocomplete: 'off', spellcheck: 'false' }),
       opts.hint ? h('p', { class: 'hint' }, opts.hint) : null,
-      h('button', { class: 'btn primary', type: 'submit' }, 'Join party'));
+      h('button', { class: 'btn primary', type: 'submit' }, 'Join'));
   }
 
   function joined() {
@@ -483,7 +499,7 @@ export function createApp(root, store, opts = {}) {
       h('div', { class: 'check-badge' }, '✓'),
       h('div', { class: 'col tight' }, h('h2', null, `You joined ${c.party?.label || c.list.name}`), h('p', { class: 'sub' }, `Everything you save lands in ${c.list.name}.`)),
       h('div', { class: 'stack center' }, c.members.map((m) => avatar(m.profile, 34, onlineIds().includes(m.user_id) ? 'here' : ''))),
-      btn('Start browsing', () => go('party', {}, 'root'), 'primary'));
+      inParty() ? btn('Start browsing', () => go('party', {}, 'root'), 'primary') : btn('Open the list', () => go('list', {}, 'root'), 'primary'));
   }
 
   function partyScreen() {
@@ -627,7 +643,7 @@ export function createApp(root, store, opts = {}) {
 
   // ------------------------------------------------------------------ render
 
-  const SCREENS = { welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, notifications, settings, profile, notifPrefs, history };
+  const SCREENS = { share: shareScreen, welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, notifications, settings, profile, notifPrefs, history };
 
   function render() {
     const build = SCREENS[S.route.name];

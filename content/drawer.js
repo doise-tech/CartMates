@@ -1,0 +1,54 @@
+import { store } from '../store/supabase.js';
+import { mountDrawer } from '../ui/drawer.js';
+import { mountPartyBar } from '../ui/party-bar.js';
+import { extractProduct, isProductPage } from '../lib/product.js';
+import css from '../ui/styles.css';
+
+// Runs on every web page. It adds the Cartmates tab on the right edge, and a Save button when the
+// page looks like a product. The page is only read when you press Save. The live-party bar still
+// appears while you are in a party.
+const isTop = window.top === window;
+const isHtml = !document.contentType || document.contentType === 'text/html';
+if (isTop && isHtml && !document.getElementById('cartmates-drawer')) start();
+
+function start() {
+  const drawer = mountDrawer({ store, css, getProduct: () => extractProduct() });
+
+  // Product pages: look a few times while the page finishes loading, and again when the address changes.
+  let lastHref = '';
+  let tries = 0;
+  const check = () => {
+    if (location.href !== lastHref) { lastHref = location.href; tries = 0; }
+    if (tries++ < 6) drawer.showSave(isProductPage(document));
+  };
+  check();
+  setInterval(check, 2000);
+
+  // The live-party bar, as before.
+  let bar = null;
+  let mounting = false;
+  const sync = async () => {
+    if (mounting) return;
+    mounting = true;
+    try {
+      const active = await store.getActive();
+      if (bar && (!active || bar.partyId !== active.partyId)) {
+        await bar.destroy();
+        bar = null;
+      }
+      if (active && !bar) {
+        bar = await mountPartyBar({
+          store, listId: active.listId, partyId: active.partyId, getProduct: () => extractProduct(), onGone: () => { bar = null; },
+        });
+      }
+    } catch {
+      // Signed out, offline, or the party is gone. The bar stays hidden.
+    } finally {
+      mounting = false;
+    }
+  };
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && ('cm_active' in changes || 'cm_auth' in changes)) sync();
+  });
+  sync();
+}

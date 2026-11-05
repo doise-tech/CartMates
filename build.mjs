@@ -30,7 +30,7 @@ await cp('popup/popup.html', 'dist/popup/popup.html');
 await cp('ui/styles.css', 'dist/popup/popup.css');
 
 const options = {
-  entryPoints: { 'popup/popup': 'popup/popup.js', content: 'content/party-bar.js' },
+  entryPoints: { 'popup/popup': 'popup/popup.js', content: 'content/drawer.js' },
   outdir: 'dist',
   bundle: true,
   format: 'iife',
@@ -41,6 +41,7 @@ const options = {
     __SUPABASE_URL__: JSON.stringify(url || ''),
     __SUPABASE_ANON_KEY__: JSON.stringify(key || ''),
   },
+  loader: { '.css': 'text' },
   logLevel: 'info',
 };
 

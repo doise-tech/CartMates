@@ -1,11 +1,12 @@
 import { h, thumb } from '../lib/dom.js';
 import { money } from '../lib/split.js';
 import { createMockStore, CATALOG, SHOP } from '../store/mock.js';
-import { createApp } from '../ui/app.js';
+import { mountDrawer } from '../ui/drawer.js';
 import { mountPartyBar } from '../ui/party-bar.js';
+import css from '../ui/styles.css';
 
-// The web preview: a made-up shop, the real extension popup, and a map that jumps to every screen.
-// It runs the same createApp and mountPartyBar the extension runs, on an in-memory store.
+// The web preview: a made-up shop with the real Cartmates side drawer on it, and a map that jumps to every screen.
+// It runs the same mountDrawer, createApp and mountPartyBar the extension runs, on an in-memory store.
 
 const store = createMockStore({ signedIn: true });
 const d = store.demo;
@@ -28,7 +29,7 @@ function drawShop() {
         h('h2', null, product.title),
         h('p', { class: 'shop-price' }, money(product.price, 'INR')),
         h('p', { class: 'shop-copy' }, 'A made-up product on a made-up shop. In the real extension this is any shopping page you open.'),
-        h('button', { class: 'shop-buy', type: 'button', onClick: () => bar?.toast('This is a demo shop. Use Save item in the Cartmates bar.') }, 'Add to bag'))),
+        h('button', { class: 'shop-buy', type: 'button', onClick: () => (bar ? bar.toast('This is a demo shop. Use Save item in the Cartmates bar.') : drawer.openSave()) }, 'Add to bag'))),
     h('div', { class: 'shop-more' },
       h('span', { class: 'shop-eyebrow' }, 'More from the shop'),
       h('div', { class: 'shop-row' }, CATALOG.map((p) => h('button', {
@@ -55,14 +56,27 @@ async function syncBar(active) {
   else bar = next;
 }
 
-// ---------------------------------------------------------------- the popup
+// ---------------------------------------------------------------- the drawer
 
 let current = '';
-const app = createApp($('popup'), store, {
-  hint: 'Preview tip: the code goa7trip01 joins a pretend party.',
-  onActive: (a) => syncBar(a),
-  onRoute: (r) => { current = r.name; markCurrent(); },
+const drawer = mountDrawer({
+  store, css, parent: $('stage-shop'), position: 'absolute', shadowMode: 'open',
+  getProduct: () => ({ url: product.url, title: product.title, brand: product.brand, image_url: null, price: product.price, currency: 'INR', hue: product.hue, shape: product.shape }),
+  appOpts: {
+    hint: 'Preview tip: the code goa7trip01 joins a party, and bday2list0 joins a list.',
+    onActive: (a) => syncBar(a),
+    onRoute: (r) => { current = r.name; markCurrent(); },
+  },
 });
+const app = drawer.app();
+drawer.showSave(true); // this pretend shop page is always a product page
+const inDrawer = (sel) => drawer.shadow.querySelector(sel);
+const pressIn = async (scope, label) => {
+  const b = [...scope.querySelectorAll('button')].find((x) => x.textContent.trim().startsWith(label) && !x.disabled);
+  b?.click();
+  await new Promise((r) => setTimeout(r, 250));
+  return !!b;
+};
 
 // ---------------------------------------------------------------- flow map
 
@@ -73,6 +87,7 @@ async function visit(name, o = {}) {
     if (wantSigned && !d.signedIn()) d.signInQuick();
     await app.restart();
   }
+  if (!o.keepClosed) drawer.open();
   if (o.list) {
     if (o.party) {
       const a = { listId: o.list, partyId: o.party };
@@ -96,6 +111,17 @@ async function visit(name, o = {}) {
 }
 
 const live = { list: 'l1', party: 'pa1' };
+const submitCode = (code) => async () => {
+  const form = drawer.shadow.querySelector('form');
+  form.elements.code.value = code;
+  form.requestSubmit();
+};
+// Open the Save card on the shop page the way a person would, then press things in it.
+const saveCard = (...labels) => async () => {
+  await drawer.openSave();
+  await new Promise((r) => setTimeout(r, 250));
+  for (const l of labels) await pressIn(drawer.saveCard.el, l);
+};
 const FLOWS = [
   { name: 'Get started', note: 'Welcome slides, account, permissions', steps: [
     { label: 'Welcome', route: 'welcome', go: () => visit('welcome', { signed: false, fresh: true, after: () => { app.state().slide = 0; app.render(); } }) },
@@ -104,27 +130,35 @@ const FLOWS = [
     { label: 'Permissions', route: 'permissions', go: () => visit('permissions') },
     { label: 'Your lists', route: 'home', go: () => visit('home') },
   ] },
-  { name: 'Start a party', note: 'Pick a list, invite friends, go live', steps: [
+  { name: 'The side drawer', note: 'A tab on every page. Slides out, grows to full view', steps: [
+    { label: 'Edge tab', route: 'tab', go: async () => { drawer.close(); drawer.closeSave(); } },
+    { label: 'Side drawer', route: 'home', go: () => visit('home', { fresh: true }) },
+    { label: 'Full view', route: 'list', go: () => visit('list', { ...live, after: () => drawer.setFull(true) }) },
+  ] },
+  { name: 'Save from any shop', note: 'Like pinning to a board: pick a list, or make one on the spot', steps: [
+    { label: 'Save button', route: 'save', go: async () => { d.resetData(); await app.restart(); drawer.close(); drawer.closeSave(); } },
+    { label: 'Pick a list', route: 'save', go: saveCard() },
+    { label: 'New list here', route: 'save', go: async () => { await saveCard()(); const box = drawer.saveCard.el.querySelector('input[name="listName"]'); if (box) { box.value = 'Goa trip'; box.focus(); } } },
+    { label: 'Saved', route: 'save', go: saveCard('Housewarming') },
+    { label: 'Share it', route: 'save', go: saveCard('Housewarming', 'Share this list') },
+  ] },
+  { name: 'Share a list', note: 'Permanent invite code, message, WhatsApp', steps: [
     { label: 'New list', route: 'newList', go: () => visit('newList') },
+    { label: 'Share sheet', route: 'share', go: () => visit('share', { list: 'l1', party: 'pa1' }) },
+    { label: 'Join with a list code', route: 'joined', go: () => visit('join', { fresh: true, after: submitCode('bday2list0') }) },
+  ] },
+  { name: 'Start a party', note: 'Pick a list, invite friends, go live', steps: [
     { label: 'Pick a list', route: 'startParty', go: () => visit('startParty') },
     { label: 'Invite friends', route: 'invite', go: () => visit('invite', live) },
     { label: 'Party hub', route: 'party', go: () => visit('party', live) },
   ] },
-  { name: 'Join a party', note: 'Use an invite code a friend sent', steps: [
+  { name: 'Join a party', note: 'Use a party invite code a friend sent', steps: [
     { label: 'Enter a code', route: 'join', go: () => visit('join', { fresh: true }) },
-    { label: 'You joined', route: 'joined', go: () => visit('join', { fresh: true, after: async () => {
-      const form = $('popup').querySelector('form');
-      form.elements.code.value = 'goa7trip01';
-      form.requestSubmit();
-    } }) },
+    { label: 'You joined', route: 'joined', go: () => visit('join', { fresh: true, after: submitCode('goa7trip01') }) },
   ] },
-  { name: 'Shop together', note: 'The bar on the shop page: presence, save, chat', steps: [
+  { name: 'Shop together', note: 'The live bar on the shop page: presence, save, chat', steps: [
     { label: 'Party hub', route: 'party', go: () => visit('party', live) },
-    { label: 'Save from the page', route: 'list', go: () => visit('list', { ...live, after: () => bar?.toast('Press Save item to add this product') }) },
-    { label: 'Chat in the bar', route: 'party', go: () => visit('party', { ...live, after: () => {
-      const btn = bar?.shadow.querySelector('button[aria-expanded="false"]');
-      btn?.click();
-    } }) },
+    { label: 'Chat in the bar', route: 'party', go: () => visit('party', { ...live, keepClosed: true, after: () => { drawer.close(); bar?.shadow.querySelector('button[aria-expanded="false"]')?.click(); } }) },
   ] },
   { name: 'Decide together', note: 'Shared list, likes, tags, talk about an item', steps: [
     { label: 'Shared list', route: 'list', go: () => visit('list', live) },
@@ -198,6 +232,7 @@ $('theme').addEventListener('click', () => {
   const root = document.documentElement;
   const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   root.dataset.theme = dark ? 'light' : 'dark';
+  drawer.setTheme(root.dataset.theme);
   $('theme').setAttribute('aria-pressed', String(!dark));
 });
 

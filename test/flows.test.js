@@ -13,6 +13,9 @@ globalThis.matchMedia = () => ({ matches: false });
 const { createMockStore, CATALOG } = await import('../store/mock.js');
 const { createApp } = await import('../ui/app.js');
 const { mountPartyBar } = await import('../ui/party-bar.js');
+const { mountDrawer } = await import('../ui/drawer.js');
+const { createSaveCard } = await import('../ui/save.js');
+const { cleanUrl } = await import('../lib/product.js');
 
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 const root = () => document.getElementById('app');
@@ -113,7 +116,7 @@ test('join with a code lands on the joined screen', async () => {
   const { app } = await boot();
   app.go('join', {}, 'root'); await tick();
   type('code', 'nope'); await submit();
-  assert.match(text(), /doesn't match/);
+  assert.match(text(), /doesn.t match/);
   type('code', 'goa7trip01'); await submit();
   assert.match(text(), /You joined/);
   assert.match(text(), /Goa trip shopping/);
@@ -196,4 +199,112 @@ test('party bar: shows who is here, saves once, chats, and stops when the party 
 test('party bar refuses to mount when signed out', async () => {
   const store = createMockStore({ signedIn: false });
   assert.equal(await mountPartyBar({ store, listId: 'l1', partyId: 'pa1', parent: document.getElementById('page'), getProduct: () => null }), null);
+});
+
+test('join with a list code (not a party code) lands on the list', async () => {
+  const { app } = await boot();
+  app.go('join', {}, 'root'); await tick();
+  type('code', 'bday2list0'); await submit();
+  assert.match(text(), /You joined Meera birthday/);
+  await click('Open the list');
+  assert.match(text(), /Linen|Brass/);
+});
+
+test('share screen shows the permanent code, and the owner can replace it', async () => {
+  const { app } = await boot();
+  await app.openList('l1', 'pa1');
+  app.go('share', {}, 'root'); await tick();
+  assert.match(text(), /h0use4rm1n/);
+  assert.ok(root().querySelector('a[href^="https://wa.me/?text="]'), 'WhatsApp link');
+  await click('Make a new code');
+  assert.doesNotMatch(text(), /h0use4rm1n/);
+  assert.match(text(), /New code made/);
+});
+
+test('share is not offered a reset to someone who does not own the list', async () => {
+  const { app } = await boot();
+  await app.openList('l2');
+  app.go('share', {}, 'root'); await tick();
+  assert.match(text(), /d1wa11g1ft/);
+  assert.doesNotMatch(text(), /Make a new code/);
+});
+
+test('save card: pick a list, share it, and a saved list opens straight to sharing', async () => {
+  const store = createMockStore();
+  const p = { ...CATALOG.find((c) => c.slug === 'cotton-throw') };
+  const card = createSaveCard({ store, getProduct: () => p });
+  document.getElementById('page').append(card.el);
+  await card.open();
+  assert.match(card.el.textContent, /Housewarming/);
+  const press = async (label) => { [...card.el.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith(label)).click(); await tick(60); };
+  await press('Housewarming');
+  assert.match(card.el.textContent, /Saved to Housewarming/);
+  assert.equal((await store.loadContext('l1', 'pa1')).items.filter((i) => i.product.url === p.url).length, 1);
+  await press('Share this list');
+  assert.match(card.el.textContent, /h0use4rm1n/);
+  await card.open();
+  await press('Housewarming');
+  assert.match(card.el.textContent, /Saved to Housewarming/, 'no duplicate save, goes to done view');
+  assert.equal((await store.loadContext('l1', 'pa1')).items.filter((i) => i.product.url === p.url).length, 1);
+});
+
+test('save card: create a new list on the spot and save into it', async () => {
+  const store = createMockStore();
+  const p = { ...CATALOG.find((c) => c.slug === 'terracotta-planter') };
+  const card = createSaveCard({ store, getProduct: () => p });
+  document.getElementById('page').append(card.el);
+  await card.open();
+  card.el.querySelector('input[name="listName"]').value = 'Goa trip';
+  card.el.querySelector('form').requestSubmit();
+  await tick(120);
+  assert.match(card.el.textContent, /Saved to Goa trip/);
+  const lists = (await store.loadHome()).lists;
+  const goa = lists.find((l) => l.name === 'Goa trip');
+  assert.ok(goa && goa.invite_code.length === 10);
+  assert.equal((await store.loadContext(goa.id, null)).items.length, 1);
+});
+
+test('save card asks for a name, and signed-out people are sent to sign in', async () => {
+  const store = createMockStore();
+  const card = createSaveCard({ store, getProduct: () => ({ ...CATALOG[0] }) });
+  document.getElementById('page').append(card.el);
+  await card.open();
+  card.el.querySelector('form').requestSubmit();
+  await tick(40);
+  assert.match(card.el.textContent, /Give your list a name/);
+  const out = createMockStore({ signedIn: false });
+  const card2 = createSaveCard({ store: out, getProduct: () => ({ ...CATALOG[0] }) });
+  await card2.open();
+  assert.match(card2.el.textContent, /Sign in first/);
+});
+
+test('drawer: tab opens it, full view widens it, Escape closes it, Save pill shows on product pages', async () => {
+  const store = createMockStore();
+  const d = mountDrawer({ store, css: '', parent: document.getElementById('page'), shadowMode: 'open', getProduct: () => ({ ...CATALOG[2] }) });
+  const q = (s) => d.shadow.querySelector(s);
+  assert.ok(!d.isOpen());
+  assert.equal(q('.pill-save').hidden, true);
+  d.showSave(true);
+  assert.equal(q('.pill-save').hidden, false);
+  q('.tab').click(); await tick(80);
+  assert.ok(d.isOpen());
+  assert.match(q('.drawer .cm').textContent, /Housewarming/);
+  assert.match(q('.drawer .cm').textContent, /Save this page/);
+  [...d.shadow.querySelectorAll('.dhead button')].find((b) => b.textContent === 'Full view').click();
+  assert.ok(q('.drawer').classList.contains('full') && q('.drawer .cm').classList.contains('wide'));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  assert.ok(!d.isOpen() && !q('.drawer').classList.contains('full'));
+  q('.pill-save').click(); await tick(100);
+  assert.equal(q('.pop').hidden, false);
+  assert.match(q('.pop').textContent, /Save to a list/);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  assert.equal(q('.pop').hidden, true);
+  await d.destroy();
+  assert.equal(document.getElementById('cartmates-drawer'), null);
+});
+
+test('cleanUrl matches the database tidy-up', () => {
+  assert.equal(cleanUrl('https://WWW.Myntra.com/kurta/123/?utm_source=insta&color=blue#reviews'), 'https://www.myntra.com/kurta/123?color=blue');
+  assert.equal(cleanUrl('https://a.com/p/?fbclid=x'), 'https://a.com/p');
+  assert.equal(cleanUrl('https://a.com/'), 'https://a.com/');
 });

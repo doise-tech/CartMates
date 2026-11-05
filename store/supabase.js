@@ -1,3 +1,4 @@
+import { cleanUrl } from '../lib/product.js';
 import { supabase } from '../lib/supabase.js';
 
 // The one place that knows about Supabase tables. Screens only call these methods, so the
@@ -80,7 +81,7 @@ export const store = {
   async loadHome() {
     const user = await me();
     const [mine, live] = await Promise.all([
-      supabase.from('list_members').select('role, lists(id, name, owner_id, created_at)').eq('user_id', user.id),
+      supabase.from('list_members').select('role, lists(id, name, owner_id, created_at, invite_code)').eq('user_id', user.id),
       supabase.from('parties').select('id, list_id, label, invite_code, host_id, started_at').eq('status', 'live'),
     ]);
     const liveBy = new Map(ok(live).map((p) => [p.list_id, p]));
@@ -93,6 +94,11 @@ export const store = {
   async createList(name) {
     return ok(await supabase.from('lists').insert({ name: name.trim() }).select().single());
   },
+  // Which of my lists already hold this page.
+  async savedIn(url) {
+    const rows = ok(await supabase.from('list_items').select('list_id, product:products!inner(url)').eq('product.url', cleanUrl(url)).is('removed_at', null));
+    return [...new Set(rows.map((r) => r.list_id))];
+  },
   async removeMember(listId, userId) {
     ok(await supabase.from('list_members').delete().eq('list_id', listId).eq('user_id', userId));
   },
@@ -101,7 +107,7 @@ export const store = {
   async loadContext(listId, partyId) {
     const q = supabase;
     const [list, members, items, tags, liveParty] = await Promise.all([
-      q.from('lists').select('id, name, owner_id, created_at').eq('id', listId).single(),
+      q.from('lists').select('id, name, owner_id, created_at, invite_code').eq('id', listId).single(),
       q.from('list_members').select('user_id, role, joined_at, profile:profiles(display_name, avatar_url)').eq('list_id', listId),
       q
         .from('list_items')
@@ -154,6 +160,21 @@ export const store = {
   },
   async joinParty(code) {
     return ok(await supabase.rpc('join_party', { code: code.trim() }));
+  },
+  async joinList(code) {
+    return ok(await supabase.rpc('join_list', { code: code.trim() }));
+  },
+  // One box for any invite code: a live party's code, or a list's own code.
+  async join(code) {
+    try {
+      return { kind: 'party', party: await store.joinParty(code) };
+    } catch (e) {
+      if (!/doesn.t match any party/i.test(e.message || '')) throw e;
+    }
+    return { kind: 'list', list: await store.joinList(code) };
+  },
+  async resetInvite(listId) {
+    return ok(await supabase.rpc('reset_list_invite', { list_id: listId }));
   },
   // Come back to a live party you left, or step into one on a list you already belong to.
   async enterParty(partyId) {

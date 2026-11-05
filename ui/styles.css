@@ -190,3 +190,10 @@ html, body { margin: 0; }
 .tile.napkin::before { width: 54%; height: 54%; left: 23%; top: 23%; border-radius: 3px; transform: rotate(-8deg); }
 .tile.napkin::after { width: 54%; height: 54%; left: 23%; top: 23%; border-radius: 3px; transform: rotate(6deg); background: rgba(255, 255, 255, 0.4); }
 @media (prefers-reduced-motion: reduce) { .cm * { transition: none !important; animation: none !important; } }
+
+/* Full-page view in the drawer: same screens, given room to breathe. */
+.cm.wide .body { width: 100%; max-width: 980px; margin-inline: auto; }
+.cm.wide .grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.cm.wide .top, .cm.wide .tabs { padding-inline: max(14px, calc((100% - 980px) / 2)); }
+.cm.wide .welcome { min-height: 0; }
+.cm .savecard .body { padding: 14px; }

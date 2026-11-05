@@ -1,6 +1,8 @@
 // In-memory stand-in for store/supabase.js, used by the web preview and the tests.
 // Same method names and shapes, plus `demo` helpers that make friends do things.
 
+import { cleanUrl } from '../lib/product.js';
+
 const MIN = 60000;
 const ago = (ms) => new Date(Date.now() - ms).toISOString();
 const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
@@ -49,8 +51,8 @@ function seed() {
   };
   return {
     lists: [
-      { id: 'l1', name: 'Housewarming', owner_id: 'u_me', created_at: ago(3000 * MIN) },
-      { id: 'l2', name: 'Diwali gifts', owner_id: 'u_priya', created_at: ago(9500 * MIN) },
+      { id: 'l1', name: 'Housewarming', owner_id: 'u_me', created_at: ago(3000 * MIN), invite_code: 'h0use4rm1n' },
+      { id: 'l2', name: 'Diwali gifts', owner_id: 'u_priya', created_at: ago(9500 * MIN), invite_code: 'd1wa11g1ft' },
     ],
     members: { l1: [member('u_me', 'owner'), member('u_priya'), member('u_arjun')], l2: [member('u_priya', 'owner'), member('u_me')] },
     parties: [
@@ -68,8 +70,11 @@ function seed() {
       ],
       pa0: [],
     },
+    sharedLists: [
+      { code: 'bday2list0', list: { id: 'l8', name: 'Meera birthday', owner_id: 'u_meera', created_at: ago(2000 * MIN), invite_code: 'bday2list0' } },
+    ],
     joinable: [
-      { code: 'goa7trip01', list: { id: 'l9', name: 'Goa trip shopping', owner_id: 'u_priya', created_at: ago(500 * MIN) }, party: { id: 'pa9', list_id: 'l9', label: 'Beach kit', status: 'live', invite_code: 'goa7trip01', host_id: 'u_priya', started_at: ago(30 * MIN), ended_at: null } },
+      { code: 'goa7trip01', list: { id: 'l9', name: 'Goa trip shopping', owner_id: 'u_priya', created_at: ago(500 * MIN), invite_code: 'g0atr1p000' }, party: { id: 'pa9', list_id: 'l9', label: 'Beach kit', status: 'live', invite_code: 'goa7trip01', host_id: 'u_priya', started_at: ago(30 * MIN), ended_at: null } },
     ],
   };
 }
@@ -159,7 +164,7 @@ export function createMockStore({ signedIn = true } = {}) {
     async createList(name) {
       needUser();
       if (!name.trim()) throw new Error('Give your list a name.');
-      const l = { id: uid('l'), name: name.trim(), owner_id: user.id, created_at: new Date().toISOString() };
+      const l = { id: uid('l'), name: name.trim(), owner_id: user.id, created_at: new Date().toISOString(), invite_code: code(10) };
       db.lists.push(l);
       db.members[l.id] = [member(user.id, 'owner', l.created_at)];
       db.items[l.id] = [];
@@ -231,6 +236,43 @@ export function createMockStore({ signedIn = true } = {}) {
       emit();
       emitPresence();
       return clone(p);
+    },
+    async joinList(codeText) {
+      needUser();
+      const c = (codeText || '').trim();
+      const extra = db.sharedLists.find((j) => j.code === c);
+      if (extra) {
+        db.lists.push(extra.list);
+        db.members[extra.list.id] = [member('u_meera', 'owner'), member('u_priya')];
+        db.items[extra.list.id] = [];
+        db.tags[extra.list.id] = [];
+        newItem(extra.list.id, null, CATALOG[1], 'u_meera');
+        db.sharedLists = db.sharedLists.filter((j) => j !== extra);
+      }
+      const l = db.lists.find((x) => x.invite_code === c);
+      if (!l) throw new Error("That invite code doesn't match any list");
+      addMember(l.id, user.id);
+      emit();
+      return clone(l);
+    },
+    async join(codeText) {
+      try {
+        return { kind: 'party', party: await store.joinParty(codeText) };
+      } catch (e) {
+        if (!/doesn.t match any party/i.test(e.message)) throw e;
+      }
+      return { kind: 'list', list: await store.joinList(codeText) };
+    },
+    async resetInvite(listId) {
+      needUser();
+      if (!isOwner(listId)) throw new Error('Only the list owner can make a new invite code');
+      list(listId).invite_code = code(10);
+      emit();
+      return list(listId).invite_code;
+    },
+    async savedIn(url) {
+      const clean = cleanUrl(url);
+      return Object.entries(db.items).filter(([id, items]) => (db.members[id] || []).some((m) => m.user_id === user?.id) && items.some((i) => cleanUrl(i.product.url) === clean)).map(([id]) => id);
     },
     async enterParty(partyId) {
       needUser();
