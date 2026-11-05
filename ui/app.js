@@ -7,7 +7,7 @@ import { money, total, lineMinor, fromMinor, splitEqual, splitByClaim, settleUp 
 
 const IN_CART = ['in_cart', 'claimed', 'bought'];
 const STATUS = { saved: 'Saved', in_cart: 'In cart', claimed: 'Claimed', bought: 'Bought' };
-const ONBOARDING = ['welcome', 'signin', 'signup', 'checkEmail', 'permissions'];
+const ONBOARDING = ['welcome', 'signin', 'signup', 'forgot', 'checkEmail', 'permissions'];
 const MAIN = ['home', 'party', 'cart'];
 const TITLES = {
   newList: 'New list', startParty: 'Start a party', invite: 'Invite friends', join: 'Join with a code', share: 'Share list', joined: "You're in",
@@ -61,6 +61,19 @@ export function createApp(root, store, opts = {}) {
   const field = (name, props = {}) => h('input', { class: 'field', name, 'data-k': `${S.route.name}:${name}`, type: 'text', ...props });
   const select = (name, options, value, props = {}) =>
     h('select', { class: 'field', name, 'data-k': `${S.route.name}:${name}`, ...props }, options.map(([v, label]) => h('option', { value: v, selected: v === value }, label)));
+
+  // Password box with a Show/Hide button, so you can see what you typed.
+  const passwordField = (name, props = {}) => {
+    const input = field(name, { type: 'password', ...props });
+    const toggle = h('button', { class: 'pwtoggle', type: 'button', 'aria-pressed': 'false', 'aria-label': 'Show password', onClick: () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggle.textContent = show ? 'Hide' : 'Show';
+      toggle.setAttribute('aria-pressed', String(show));
+      toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    } }, 'Show');
+    return h('div', { class: 'pw' }, input, toggle);
+  };
 
   function collect() {
     const out = {};
@@ -214,7 +227,7 @@ export function createApp(root, store, opts = {}) {
     const r = S.route.name;
     if (r === 'boot') return null;
     if (ONBOARDING.includes(r)) {
-      const canBack = r === 'signin' || r === 'signup' || r === 'checkEmail';
+      const canBack = r === 'signin' || r === 'signup' || r === 'forgot' || r === 'checkEmail';
       return h('div', { class: 'top' }, canBack ? h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '←') : null, h('span', { class: 'brand' }, h('i'), 'cartmates'));
     }
     if (MAIN.includes(r)) {
@@ -264,7 +277,7 @@ export function createApp(root, store, opts = {}) {
       run(async () => {
         const email = f.email.value.trim();
         const result = signup ? await store.signUp(email, f.password.value, f.name.value.trim()) : await store.signIn(email, f.password.value);
-        if (!result.user) { S.pendingEmail = email; return go('checkEmail', {}, 'replace'); }
+        if (!result.user) { S.pendingEmail = email; S.checkKind = 'confirm'; return go('checkEmail', {}, 'replace'); }
         S.user = result.user;
         await afterSignIn();
         if (signup) return go('permissions', {}, 'root');
@@ -279,15 +292,32 @@ export function createApp(root, store, opts = {}) {
       h('span', { class: 'label' }, 'Email'),
       field('email', { type: 'email', placeholder: 'name@company.com', 'aria-label': 'Email', autocomplete: 'email' }),
       h('span', { class: 'label' }, signup ? 'Create a password' : 'Password'),
-      field('password', { type: 'password', placeholder: signup ? 'Create a password (6+ characters)' : 'Your password', 'aria-label': signup ? 'Create a password' : 'Password', autocomplete: signup ? 'new-password' : 'current-password' }),
+      passwordField('password', { placeholder: signup ? 'Create a password (6+ characters)' : 'Your password', 'aria-label': signup ? 'Create a password' : 'Password', autocomplete: signup ? 'new-password' : 'current-password' }),
       h('button', { class: 'btn primary', type: 'submit' }, signup ? 'Create account' : 'Sign in'),
+      signup ? null : link('Forgot password?', () => go('forgot')),
       link(signup ? 'I already have an account' : 'Create an account', () => go(signup ? 'signin' : 'signup', {}, 'replace')));
   }
 
+  function forgot() {
+    return h('form', { class: 'body', onSubmit: (e) => { e.preventDefault(); run(async () => {
+      const email = e.target.elements.email.value.trim();
+      await store.resetPassword(email);
+      S.pendingEmail = email;
+      S.checkKind = 'reset';
+      go('checkEmail', {}, 'replace');
+    }); } },
+      h('div', null, h('h2', null, 'Forgot your password?'), h('p', { class: 'sub' }, 'Enter your email and we will send you a link to choose a new one.')),
+      h('span', { class: 'label' }, 'Email'),
+      field('email', { type: 'email', placeholder: 'name@company.com', 'aria-label': 'Email', autocomplete: 'email' }),
+      h('button', { class: 'btn primary', type: 'submit' }, 'Send reset link'),
+      link('Back to sign in', () => go('signin', {}, 'replace')));
+  }
+
   function checkEmail() {
+    const reset = S.checkKind === 'reset';
     return h('div', { class: 'body center' },
       h('div', { class: 'check-badge' }, '\u2709'),
-      h('div', { class: 'col tight' }, h('h2', null, 'Check your email'), h('p', { class: 'sub' }, `We sent a confirmation link to ${S.pendingEmail || 'your email'}. Open it, then come back here and sign in.`)),
+      h('div', { class: 'col tight' }, h('h2', null, 'Check your email'), h('p', { class: 'sub' }, reset ? `If ${S.pendingEmail || 'that email'} has a Cartmates account, a link to choose a new password is on its way. Open it, then come back here and sign in.` : `We sent a confirmation link to ${S.pendingEmail || 'your email'}. Open it, then come back here and sign in.`)),
       btn('Go to sign in', () => go('signin', {}, 'replace'), 'primary'),
       h('p', { class: 'sub' }, 'Nothing there? Look in spam and promotions.'));
   }
@@ -654,7 +684,7 @@ export function createApp(root, store, opts = {}) {
 
   // ------------------------------------------------------------------ render
 
-  const SCREENS = { checkEmail, share: shareScreen, welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, notifications, settings, profile, notifPrefs, history };
+  const SCREENS = { forgot, checkEmail, share: shareScreen, welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, notifications, settings, profile, notifPrefs, history };
 
   function render() {
     const build = SCREENS[S.route.name];

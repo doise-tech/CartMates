@@ -326,3 +326,30 @@ test('sign up that needs email confirmation shows a clear check-your-email scree
   await click('Go to sign in');
   assert.match(text(), /Welcome back/);
 });
+
+test('password box has a working Show/Hide button', async () => {
+  await boot({ store: { signedIn: false } });
+  await click('Skip');
+  const input = root().querySelector('[name="password"]');
+  assert.equal(input.type, 'password');
+  await click('Show');
+  assert.equal(input.type, 'text');
+  assert.equal(root().querySelector('.pwtoggle').getAttribute('aria-label'), 'Hide password');
+  await click('Hide');
+  assert.equal(input.type, 'password');
+});
+
+test('forgot password: link from sign in, asks for an email, then says to check it', async () => {
+  await boot({ store: { signedIn: false } });
+  await click('Next'); await click('Next');
+  await click('I already have an account');
+  await click('Forgot password?');
+  assert.match(text(), /Forgot your password/);
+  type('email', 'a@b'); await submit();
+  assert.match(text(), /Enter the email/);
+  type('email', 'asha@example.com'); await submit();
+  assert.match(text(), /Check your email/);
+  assert.match(text(), /choose a new password/);
+  await click('Go to sign in');
+  assert.match(text(), /Welcome back/);
+});

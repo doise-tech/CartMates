@@ -65,6 +65,10 @@ export const store = {
     if (error) throw new Error(error.message);
     return data.session ? { user: await profileFor(data.user) } : { user: null, needsConfirm: true };
   },
+  async resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: chrome.runtime.getURL('confirmed/confirmed.html') });
+    if (error) throw new Error(error.message);
+  },
   async signOut() {
     await supabase.auth.signOut();
     await chrome.storage.local.remove([ACTIVE_KEY]);

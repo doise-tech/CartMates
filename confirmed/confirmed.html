@@ -3,20 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>You're in | Cartmates</title>
+<title>Cartmates</title>
 <link rel="stylesheet" href="confirmed.css">
 </head>
 <body>
 <main>
   <div class="mark" aria-hidden="true"></div>
-  <h1>You're in. Welcome to Cartmates.</h1>
-  <p>Your email is confirmed. Shop together, save together, and never lose a good find again.</p>
-  <ol>
-    <li>Click the Cartmates icon in your Chrome toolbar (the puzzle piece, if you haven't pinned it).</li>
-    <li>Sign in with the email and password you just made.</li>
-    <li>Open any shop and look for the purple Cartmates tab on the right edge.</li>
-  </ol>
-  <p class="small">You can close this tab now.</p>
+
+  <section id="done">
+    <h1>You're in. Welcome to Cartmates.</h1>
+    <p>Your email is confirmed. Shop together, save together, and never lose a good find again.</p>
+    <ol>
+      <li>Click the Cartmates icon in your Chrome toolbar (the puzzle piece, if you haven't pinned it).</li>
+      <li>Sign in with the email and password you just made.</li>
+      <li>Open any shop and look for the purple Cartmates tab on the right edge.</li>
+    </ol>
+    <p class="small">You can close this tab now.</p>
+  </section>
+
+  <section id="reset" hidden>
+    <h1>Choose a new password</h1>
+    <p>Pick something you'll remember. At least 6 characters.</p>
+    <form id="resetForm">
+      <label for="pw">New password</label>
+      <div class="pw"><input id="pw" type="password" minlength="6" required autocomplete="new-password"><button id="pwToggle" type="button" aria-pressed="false">Show</button></div>
+      <button class="go" type="submit">Save new password</button>
+      <p id="resetMsg" class="msg" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <section id="saved" hidden>
+    <h1>Password updated</h1>
+    <p>You're signed in. Click the Cartmates icon in your toolbar to get back to your lists. You can close this tab now.</p>
+  </section>
+
+  <section id="expired" hidden>
+    <h1>That link has expired</h1>
+    <p>Reset and confirmation links work once, for a short while. Open Cartmates and tap "Forgot password?" to get a fresh one.</p>
+  </section>
 </main>
 <script src="confirmed.js"></script>
 </body>

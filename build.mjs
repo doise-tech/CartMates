@@ -31,7 +31,7 @@ await cp('ui/styles.css', 'dist/popup/popup.css');
 await cp('confirmed', 'dist/confirmed', { recursive: true });
 
 const options = {
-  entryPoints: { 'popup/popup': 'popup/popup.js', content: 'content/drawer.js' },
+  entryPoints: { 'popup/popup': 'popup/popup.js', content: 'content/drawer.js', 'confirmed/confirmed': 'confirmed/confirmed.js' },
   outdir: 'dist',
   bundle: true,
   format: 'iife',

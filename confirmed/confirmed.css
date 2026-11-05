@@ -8,3 +8,10 @@ p { margin: 0 0 16px; color: var(--ink2); }
 ol { margin: 0 0 16px; padding-left: 20px; }
 li { margin-bottom: 6px; }
 .small { font-size: 13px; margin: 0; }
+[hidden] { display: none !important; }
+label { display: block; font-size: 13px; color: var(--ink2); margin-bottom: 6px; }
+.pw { position: relative; margin-bottom: 14px; }
+.pw input { width: 100%; box-sizing: border-box; padding: 11px 64px 11px 12px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.pw button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--ink2); font: inherit; font-size: 13px; padding: 6px 8px; cursor: pointer; }
+.go { width: 100%; padding: 12px; font: inherit; font-weight: 700; color: #fff; background: var(--accent); border: 0; border-radius: 10px; cursor: pointer; }
+.msg { margin: 12px 0 0; color: #b73a34; font-size: 14px; }

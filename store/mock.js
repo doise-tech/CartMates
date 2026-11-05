@@ -141,6 +141,9 @@ export function createMockStore({ signedIn = true } = {}) {
       user = { id: 'u_me', email, display_name: name || email.split('@')[0], avatar_url: null, preferred_currency: 'INR', notifications_enabled: true };
       return { user: clone(user) };
     },
+    async resetPassword(email) {
+      if (!/.+@.+\..+/.test(email || '')) throw new Error('Enter the email you signed up with.');
+    },
     async signOut() {
       user = null;
       active = null;
