@@ -117,7 +117,7 @@ export function createMockStore({ signedIn = true } = {}) {
   const newItem = (listId, partyId, p, by) => {
     const row = {
       id: uid('it'), list_id: listId, product: { url: p.url, title: p.title, brand: p.brand ?? null, image_url: p.image_url ?? null, price: p.price ?? null, currency: p.currency ?? null, store_domain: new URL(p.url).hostname, hue: p.hue, shape: p.shape },
-      price_at_save: p.price ?? null, currency_at_save: p.currency ?? null, quantity: 1, note: null, variant: p.variant ?? null, status: 'saved', claimed_by: null, bought_at: null,
+      price_at_save: p.price ?? null, currency_at_save: p.currency ?? null, quantity: 1, note: null, variant: p.variant ?? null, images: p.images ?? [], options: p.options ?? [], status: 'saved', claimed_by: null, bought_at: null,
       added_by: by, party_id: partyId ?? null, created_at: new Date().toISOString(), reactions: [], tag_ids: [],
     };
     db.items[listId] = db.items[listId] || [];

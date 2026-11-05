@@ -133,7 +133,17 @@ html, body { margin: 0; }
 .cm .item { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
 .cm .item .t { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cm .thumb { aspect-ratio: 4 / 3; border-radius: 8px; background: var(--accent-soft); object-fit: cover; width: 100%; display: block; }
-.cm .hero-thumb { aspect-ratio: 16 / 10; border-radius: 12px; background: var(--accent-soft); object-fit: cover; width: 100%; display: block; }
+.cm .hero-thumb { aspect-ratio: 16 / 10; border-radius: 12px; background: var(--accent-soft); object-fit: contain; width: 100%; display: block; }
+.cm .strip { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 4px; }
+.cm .shot { flex: none; width: 46px; height: 46px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
+.cm .shot img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 6px; }
+.cm .shot[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cm .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.cm .opt { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.cm .opt:not(:has(img)) { padding-left: 10px; }
+.cm .opt img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; display: block; }
+.cm .opt[aria-pressed="true"], .cm .opt[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.cm .opt.static { cursor: default; }
 .cm .mini { width: 44px; height: 44px; border-radius: 8px; background: var(--accent-soft); object-fit: cover; flex: none; display: block; }
 .cm .tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .cm .tag { font-size: 11px; padding: 1px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--ink-2); }

@@ -448,14 +448,32 @@ export function createApp(root, store, opts = {}) {
         render();
       });
     };
+    let hero = thumb(i.product, 'hero-thumb');
+    const shots = (Array.isArray(i.images) ? i.images : []).map((u) => safeUrl(u)).filter(Boolean);
+    const strip = shots.length > 1 ? h('div', { class: 'strip', role: 'group', 'aria-label': 'Pictures' }, shots.map((u) =>
+      h('button', { class: 'shot', type: 'button', 'aria-label': 'Show this picture', 'aria-pressed': String(u === safeUrl(i.product.image_url)), onClick: (e) => {
+        const next = thumb({ image_url: u }, 'hero-thumb');
+        hero.replaceWith(next);
+        hero = next;
+        e.currentTarget.parentElement.querySelectorAll('.shot').forEach((b) => b.setAttribute('aria-pressed', String(b === e.currentTarget)));
+      } }, h('img', { src: u, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' })))) : null;
+    const dims = (Array.isArray(i.options) ? i.options : []).filter((d) => d?.values?.length);
+    const picks = (i.variant || '').toLowerCase();
+    const optionRows = dims.length ? h('div', { class: 'card col' }, dims.map((d) => h('div', { class: 'col tight' },
+      h('span', { class: 'label' }, d.name),
+      h('div', { class: 'opts' }, d.values.map((v) => {
+        const on = picks.includes(`${d.name.toLowerCase()}: ${String(v.label).toLowerCase()}`) || (v.selected && !picks.includes(`${d.name.toLowerCase()}:`));
+        return h('span', { class: 'opt static', 'aria-current': on ? 'true' : null }, safeUrl(v.image) ? h('img', { src: safeUrl(v.image), alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null, h('span', null, v.label));
+      }))))) : null;
     return h('div', { class: 'body' },
-      thumb(i.product, 'hero-thumb'),
+      hero, strip,
       h('div', { class: 'col tight' },
         h('h2', null, i.product.title),
         h('div', { class: 'row sp' }, h('span', { class: 'price big' }, priceText(i)), h('span', { class: `pill ${i.status}` }, STATUS[i.status])),
         i.variant ? h('span', { class: 'chips' }, i.variant.split(' · ').map((v) => h('span', { class: 'tag' }, v))) : null,
         h('span', { class: 'sub' }, `Saved by ${nm(i.added_by)} ${ago(i.created_at)}${i.product.brand ? ` · ${i.product.brand}` : ''}`),
         href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, `Open at ${i.product.store_domain || 'the shop'}`) : null),
+      optionRows,
       h('div', { class: 'card col' }, h('span', { class: 'label' }, 'Buying'), h('div', { class: 'row wrap' }, itemActions(i))),
       h('div', { class: 'row' }, likeButton(i), h('span', { class: 'sub' }, likers.length ? `${likers.join(', ')} liked this` : 'Be the first to like this')),
       h('div', { class: 'col' },

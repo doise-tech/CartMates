@@ -213,6 +213,8 @@ export const store = {
         p_currency: p.currency ?? null,
         p_brand: p.brand ?? null,
         p_variant: p.variant ?? null,
+        p_images: (p.images || []).slice(0, 8),
+        p_options: p.options || [],
         p_quantity: 1,
         p_note: null,
         p_party_id: partyId ?? null,

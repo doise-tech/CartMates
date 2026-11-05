@@ -1,6 +1,6 @@
-import { h, thumb } from '../lib/dom.js';
+import { h, thumb, safeUrl } from '../lib/dom.js';
 import { money } from '../lib/split.js';
-import { parsePrice } from '../lib/product.js';
+import { parsePrice, bigImage } from '../lib/product.js';
 import { shareBlock } from './share.js';
 
 // The Pinterest-style card: you are on a product page, pick a list (or make one right here),
@@ -112,6 +112,8 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
         p.brand ? h('span', { class: 'sub clip' }, p.brand) : null,
         p.price != null ? h('span', { class: 'price' }, money(p.price, p.currency || st.user.preferred_currency || 'INR')) : h('span', { class: 'sub' }, 'No price found'))),
       p.variant ? h('span', { class: 'tags' }, p.variant.split(' · ').map((v) => h('span', { class: 'tag' }, v))) : null,
+      gallery(p),
+      optionPickers(p),
       link(st.edit ? 'Done' : 'Not right? Edit details', () => { if (st.edit) applyEdit(); else { st.edit = true; draw(); } }));
     if (!st.edit) return shown;
     return h('div', { class: 'col' },
@@ -119,6 +121,37 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
       h('span', { class: 'label' }, 'Price'), h('input', { class: 'field', name: 'price', value: p.price ?? '', inputmode: 'decimal', placeholder: 'e.g. 1599', 'aria-label': 'Price' }),
       h('span', { class: 'label' }, 'Colour, size and so on'), h('input', { class: 'field', name: 'variant', value: p.variant ?? '', maxlength: '120', placeholder: 'Colour: White \u00b7 Size: M', 'aria-label': 'Colour, size and so on' }),
       link('Done', applyEdit));
+  }
+
+  // The shop's other pictures. Tap one to make it the cover.
+  function gallery(p) {
+    const imgs = (p.images || []).filter((u) => safeUrl(u));
+    if (imgs.length < 2) return null;
+    return h('div', { class: 'strip', role: 'group', 'aria-label': 'Pictures' }, imgs.slice(0, 8).map((u) =>
+      h('button', { class: 'shot', type: 'button', 'aria-pressed': String(u === p.image_url), 'aria-label': 'Use this picture', onClick: () => { st.product = { ...st.product, image_url: u }; draw(); } },
+        h('img', { src: safeUrl(u), alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }))));
+  }
+
+  // Every choice the shop offers (Colour: White, Black, ...). The one on the page is ticked; tap another to switch.
+  function optionPickers(p) {
+    const dims = p.options || [];
+    if (!dims.length) return null;
+    return h('div', { class: 'col' }, dims.map((d) => h('div', { class: 'col tight' },
+      h('span', { class: 'label' }, d.name),
+      h('div', { class: 'opts' }, d.values.map((v) =>
+        h('button', { class: 'opt', type: 'button', 'aria-pressed': String(!!v.selected), onClick: () => chooseOption(d.name, v.label) },
+          v.image && safeUrl(v.image) ? h('img', { src: safeUrl(v.image), alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
+          h('span', null, v.label)))))));
+  }
+
+  function chooseOption(name, label) {
+    const cur = st.product;
+    const options = (cur.options || []).map((d) => (d.name === name ? { ...d, values: d.values.map((v) => ({ ...v, selected: v.label === label })) } : d));
+    const parts = (cur.variant ? cur.variant.split(' · ') : []).filter((x) => !x.toLowerCase().startsWith(`${name.toLowerCase()}:`));
+    parts.push(`${name}: ${label}`);
+    const picked = options.find((d) => d.name === name)?.values.find((v) => v.label === label);
+    st.product = { ...cur, options, variant: parts.join(' · ').slice(0, 120), image_url: picked?.image ? bigImage(picked.image) : cur.image_url };
+    draw();
   }
 
   function applyEdit() {
