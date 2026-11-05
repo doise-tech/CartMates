@@ -28,6 +28,7 @@ await mkdir('dist/popup', { recursive: true });
 await cp('manifest.json', 'dist/manifest.json');
 await cp('popup/popup.html', 'dist/popup/popup.html');
 await cp('ui/styles.css', 'dist/popup/popup.css');
+await cp('confirmed', 'dist/confirmed', { recursive: true });
 
 const options = {
   entryPoints: { 'popup/popup': 'popup/popup.js', content: 'content/drawer.js' },

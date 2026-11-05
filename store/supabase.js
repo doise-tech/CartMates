@@ -61,7 +61,7 @@ export const store = {
     return { user: await profileFor(data.user) };
   },
   async signUp(email, password, name) {
-    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name || undefined } } });
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name || undefined }, emailRedirectTo: chrome.runtime.getURL('confirmed/confirmed.html') } });
     if (error) throw new Error(error.message);
     return data.session ? { user: await profileFor(data.user) } : { user: null, needsConfirm: true };
   },

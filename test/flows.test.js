@@ -308,3 +308,21 @@ test('cleanUrl matches the database tidy-up', () => {
   assert.equal(cleanUrl('https://a.com/p/?fbclid=x'), 'https://a.com/p');
   assert.equal(cleanUrl('https://a.com/'), 'https://a.com/');
 });
+
+test('sign up that needs email confirmation shows a clear check-your-email screen', async () => {
+  const store = createMockStore({ signedIn: false });
+  store.signUp = async () => ({ user: null, needsConfirm: true });
+  const routes = [];
+  const app = createApp(root(), store, { onRoute: (r) => routes.push(r.name) });
+  apps.push(app);
+  await tick(60);
+  await click('Skip');
+  assert.match(text(), /Create a password/);
+  assert.equal(root().querySelector('[name="password"]').getAttribute('aria-label'), 'Create a password');
+  type('email', 'asha@example.com'); type('password', 'pass1234'); type('name', 'Asha');
+  await submit();
+  assert.match(text(), /Check your email/);
+  assert.match(text(), /asha@example\.com/);
+  await click('Go to sign in');
+  assert.match(text(), /Welcome back/);
+});

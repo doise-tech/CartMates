@@ -7,7 +7,7 @@ import { money, total, lineMinor, fromMinor, splitEqual, splitByClaim, settleUp 
 
 const IN_CART = ['in_cart', 'claimed', 'bought'];
 const STATUS = { saved: 'Saved', in_cart: 'In cart', claimed: 'Claimed', bought: 'Bought' };
-const ONBOARDING = ['welcome', 'signin', 'signup', 'permissions'];
+const ONBOARDING = ['welcome', 'signin', 'signup', 'checkEmail', 'permissions'];
 const MAIN = ['home', 'party', 'cart'];
 const TITLES = {
   newList: 'New list', startParty: 'Start a party', invite: 'Invite friends', join: 'Join with a code', share: 'Share list', joined: "You're in",
@@ -214,7 +214,7 @@ export function createApp(root, store, opts = {}) {
     const r = S.route.name;
     if (r === 'boot') return null;
     if (ONBOARDING.includes(r)) {
-      const canBack = r === 'signin' || r === 'signup';
+      const canBack = r === 'signin' || r === 'signup' || r === 'checkEmail';
       return h('div', { class: 'top' }, canBack ? h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '←') : null, h('span', { class: 'brand' }, h('i'), 'cartmates'));
     }
     if (MAIN.includes(r)) {
@@ -264,7 +264,7 @@ export function createApp(root, store, opts = {}) {
       run(async () => {
         const email = f.email.value.trim();
         const result = signup ? await store.signUp(email, f.password.value, f.name.value.trim()) : await store.signIn(email, f.password.value);
-        if (!result.user) return say('Check your email to confirm your account, then sign in.');
+        if (!result.user) { S.pendingEmail = email; return go('checkEmail', {}, 'replace'); }
         S.user = result.user;
         await afterSignIn();
         if (signup) return go('permissions', {}, 'root');
@@ -274,11 +274,22 @@ export function createApp(root, store, opts = {}) {
     };
     return h('form', { class: 'body', onSubmit: submit },
       h('div', null, h('h2', null, signup ? 'Create your account' : 'Welcome back'), h('p', { class: 'sub' }, signup ? 'It takes a minute. Friends will see the name you pick.' : 'Sign in to pick up where you left off.')),
-      signup ? field('name', { placeholder: 'Priya', 'aria-label': 'Your name', autocomplete: 'nickname', maxlength: 60 }) : null,
+      signup ? h('span', { class: 'label' }, 'Your name') : null,
+      signup ? field('name', { placeholder: 'What friends will see', 'aria-label': 'Your name', autocomplete: 'nickname', maxlength: 60 }) : null,
+      h('span', { class: 'label' }, 'Email'),
       field('email', { type: 'email', placeholder: 'name@company.com', 'aria-label': 'Email', autocomplete: 'email' }),
-      field('password', { type: 'password', placeholder: 'At least 6 characters', 'aria-label': 'Password', autocomplete: signup ? 'new-password' : 'current-password' }),
+      h('span', { class: 'label' }, signup ? 'Create a password' : 'Password'),
+      field('password', { type: 'password', placeholder: signup ? 'Create a password (6+ characters)' : 'Your password', 'aria-label': signup ? 'Create a password' : 'Password', autocomplete: signup ? 'new-password' : 'current-password' }),
       h('button', { class: 'btn primary', type: 'submit' }, signup ? 'Create account' : 'Sign in'),
       link(signup ? 'I already have an account' : 'Create an account', () => go(signup ? 'signin' : 'signup', {}, 'replace')));
+  }
+
+  function checkEmail() {
+    return h('div', { class: 'body center' },
+      h('div', { class: 'check-badge' }, '\u2709'),
+      h('div', { class: 'col tight' }, h('h2', null, 'Check your email'), h('p', { class: 'sub' }, `We sent a confirmation link to ${S.pendingEmail || 'your email'}. Open it, then come back here and sign in.`)),
+      btn('Go to sign in', () => go('signin', {}, 'replace'), 'primary'),
+      h('p', { class: 'sub' }, 'Nothing there? Look in spam and promotions.'));
   }
 
   function permissions() {
@@ -643,7 +654,7 @@ export function createApp(root, store, opts = {}) {
 
   // ------------------------------------------------------------------ render
 
-  const SCREENS = { share: shareScreen, welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, notifications, settings, profile, notifPrefs, history };
+  const SCREENS = { checkEmail, share: shareScreen, welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, notifications, settings, profile, notifPrefs, history };
 
   function render() {
     const build = SCREENS[S.route.name];
