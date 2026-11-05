@@ -13,6 +13,7 @@ if (isTop && isHtml && !document.getElementById('cartmates-drawer')) start();
 
 function start() {
   const drawer = mountDrawer({ store, css, getProduct: () => extractProduct() });
+  drawer.showTab(false); // the side tab only shows while a party is live
   const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
 
   // Product pages: look a few times while the page finishes loading, and again when the address changes.
@@ -34,6 +35,7 @@ function start() {
     mounting = true;
     try {
       const active = await store.getActive();
+      drawer.showTab(!!active);
       if (bar && (!active || bar.partyId !== active.partyId)) {
         await bar.destroy();
         bar = null;
@@ -44,7 +46,8 @@ function start() {
         });
       }
     } catch {
-      // Signed out, offline, or the party is gone. The bar stays hidden.
+      drawer.showTab(false);
+      // Signed out, offline, or the party is gone. The bar and tab stay hidden.
     } finally {
       mounting = false;
     }

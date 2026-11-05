@@ -39,7 +39,7 @@ const DRAWER_CSS = `
 .dhead button:focus-visible, .tab:focus-visible, .pill-save:focus-visible { outline: 2px solid var(--accent, #6c5ce7); outline-offset: 2px; }
 .drawer > .cm { flex: 1; width: 100%; min-height: 0; overflow-y: auto; }
 .pop { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: min(350px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; border-radius: 16px; background: var(--bg, #f4f4fa); border: 1px solid var(--line, #e2e1ed); box-shadow: 0 12px 40px rgba(20,19,28,.28); }
-.pop[hidden], .pill-save[hidden] { display: none; }
+.pop[hidden], .pill-save[hidden], .tab[hidden] { display: none; }
 .pop .cm { width: 100%; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
 `;
@@ -123,6 +123,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
     app: ensureApp,
     saveCard: card,
     showSave: (on) => { saveBtn.hidden = !on; },
+    showTab: (on) => { tab.hidden = !on; if (!on) { close(); closeSave(); } },
     setTheme: (mode) => { if (mode) host.setAttribute('data-theme', mode); else host.removeAttribute('data-theme'); },
     destroy: async () => {
       if (destroyed) return;
