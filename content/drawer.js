@@ -13,16 +13,18 @@ if (isTop && isHtml && !document.getElementById('cartmates-drawer')) start();
 
 function start() {
   const drawer = mountDrawer({ store, css, getProduct: () => extractProduct() });
+  const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
 
   // Product pages: look a few times while the page finishes loading, and again when the address changes.
   let lastHref = '';
   let tries = 0;
   const check = () => {
+    if (!alive()) { clearInterval(timer); drawer.destroy(); return; } // extension was reloaded; this tab needs a refresh
     if (location.href !== lastHref) { lastHref = location.href; tries = 0; }
     if (tries++ < 6) drawer.showSave(isProductPage(document));
   };
+  const timer = setInterval(check, 2000);
   check();
-  setInterval(check, 2000);
 
   // The live-party bar, as before.
   let bar = null;
