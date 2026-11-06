@@ -32,6 +32,13 @@ async function me() {
   return data.session?.user ?? null;
 }
 
+// For anything that needs a signed-in person. A clear message instead of "Cannot read properties of null".
+async function needMe() {
+  const user = await me();
+  if (!user) throw new Error('You are signed out. Open Cartmates and sign in again.');
+  return user;
+}
+
 async function profileFor(user) {
   const { data } = await supabase
     .from('profiles')
@@ -75,7 +82,7 @@ export const store = {
     await chrome.storage.local.remove([ACTIVE_KEY]);
   },
   async updateProfile(patch) {
-    const user = await me();
+    const user = await needMe();
     const allowed = {};
     for (const k of ['display_name', 'preferred_currency', 'notifications_enabled']) if (k in patch) allowed[k] = patch[k];
     ok(await supabase.from('profiles').update(allowed).eq('id', user.id));
@@ -84,7 +91,7 @@ export const store = {
 
   // ---- lists
   async loadHome() {
-    const user = await me();
+    const user = await needMe();
     const [mine, live] = await Promise.all([
       supabase.from('list_members').select('role, lists(id, name, owner_id, created_at, invite_code)').eq('user_id', user.id),
       supabase.from('parties').select('id, list_id, label, invite_code, host_id, started_at').eq('status', 'live'),
@@ -160,7 +167,7 @@ export const store = {
 
   // ---- parties
   async startParty(listId, label) {
-    const user = await me();
+    const user = await needMe();
     return ok(await supabase.from('parties').insert({ list_id: listId, host_id: user.id, label: label?.trim() || null }).select().single());
   },
   async joinParty(code) {
@@ -183,12 +190,12 @@ export const store = {
   },
   // Come back to a live party you left, or step into one on a list you already belong to.
   async enterParty(partyId) {
-    const user = await me();
+    const user = await needMe();
     const back = ok(await supabase.from('party_members').update({ left_at: null }).eq('party_id', partyId).eq('user_id', user.id).select());
     if (!back.length) ok(await supabase.from('party_members').insert({ party_id: partyId, user_id: user.id }));
   },
   async leaveParty(partyId) {
-    const user = await me();
+    const user = await needMe();
     ok(await supabase.from('party_members').update({ left_at: new Date().toISOString() }).eq('party_id', partyId).eq('user_id', user.id));
   },
   async endParty(partyId) {
@@ -229,7 +236,7 @@ export const store = {
     ok(await supabase.from('list_items').update({ removed_at: new Date().toISOString() }).eq('id', itemId));
   },
   async toggleReaction(itemId) {
-    const user = await me();
+    const user = await needMe();
     const { data } = await supabase.from('reactions').select('item_id').eq('item_id', itemId).eq('user_id', user.id).maybeSingle();
     if (data) ok(await supabase.from('reactions').delete().eq('item_id', itemId).eq('user_id', user.id));
     else ok(await supabase.from('reactions').insert({ item_id: itemId, user_id: user.id, type: 'heart' }));
@@ -244,7 +251,7 @@ export const store = {
 
   // ---- chat. A message can point at an item, which is how item discussion works.
   async sendMessage(partyId, body, itemId = null) {
-    const user = await me();
+    const user = await needMe();
     ok(await supabase.from('messages').insert({ party_id: partyId, user_id: user.id, body: body.trim(), item_id: itemId }));
   },
   async loadThread(itemId) {
@@ -253,7 +260,7 @@ export const store = {
 
   // ---- live updates. onChange({ kind: 'data' }) means "reload"; { kind: 'presence', online } lists who is here.
   async subscribe({ listId, partyId }, onChange) {
-    const user = await me();
+    const user = await needMe();
     const topic = `cm:${partyId || listId}`;
     // The drawer and the party bar can both listen to the same list or party. They share one connection
     // (a second one with the same name is refused once the first is running) and each gets every update.

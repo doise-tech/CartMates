@@ -63,7 +63,7 @@ function start() {
     }
   };
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && ('cm_active' in changes || 'cm_auth' in changes)) sync();
+    if (area === 'local' && ('cm_active' in changes || 'cm_auth' in changes)) sync().catch(() => {});
   });
-  sync();
+  sync().catch(() => {});
 }
