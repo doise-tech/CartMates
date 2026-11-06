@@ -11,11 +11,6 @@ const CSS = `
   --b-line: var(--cm-line, #e9ddcf); --b-accent: var(--cm-accent, #93643a); --b-accent-ink: var(--cm-accent-ink, #ffffff);
   --b-soft: var(--cm-accent-soft, #f3e8da); --b-live: var(--cm-live, #3e7d4f); --b-danger: var(--cm-danger, #b73a34);
   --b-toast: var(--cm-toast, #2b231d); --b-toast-ink: var(--cm-toast-ink, #fffdf9); }
-@media (prefers-color-scheme: dark) { :host {
-  --b-bg: var(--cm-surface, #251f19); --b-ink: var(--cm-ink, #f6eee5); --b-ink2: var(--cm-ink-2, #cdbfb0);
-  --b-line: var(--cm-line, #3b3128); --b-accent: var(--cm-accent, #d4a074); --b-accent-ink: var(--cm-accent-ink, #1b1612);
-  --b-soft: var(--cm-accent-soft, #3a2d22); --b-live: var(--cm-live, #6fcf8a); --b-danger: var(--cm-danger, #ff9a8a);
-  --b-toast: var(--cm-toast, #f6eee5); --b-toast-ink: var(--cm-toast-ink, #1b1612); } }
 * { box-sizing: border-box; }
 .bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483647; width: min(580px, calc(100vw - 24px));
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--b-ink); }

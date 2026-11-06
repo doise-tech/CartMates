@@ -94,14 +94,17 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
     ensureApp();
     closeSave();
     root.classList.add('open');
+    // Come back the way you left it: side view or full view.
+    Promise.resolve(store.getFlag?.('drawerFull')).then((was) => { if (was && root.classList.contains('open')) setFull(true, false); }).catch(() => {});
     drawer.querySelector('button')?.focus?.({ preventScroll: true });
   }
   function close() {
     root.classList.remove('open');
-    setFull(false);
+    setFull(false, false);
   }
-  function setFull(next) {
+  function setFull(next, remember = true) {
     full = next;
+    if (remember) store.setFlag?.('drawerFull', next)?.catch?.(() => {});
     drawer.classList.toggle('full', full);
     appRoot.classList.toggle('wide', full);
     expandBtn.textContent = full ? 'Side view' : 'Full view';
@@ -109,7 +112,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   }
   async function openSave() {
     root.classList.remove('open');
-    setFull(false);
+    setFull(false, false);
     root.classList.add('saving');
     pop.hidden = false;
     await card.open();
@@ -129,7 +132,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
 
   return {
     host, shadow, root,
-    open, close, openSave, closeSave,
+    open, close, toggle: () => (root.classList.contains('open') ? close() : open()), openSave, closeSave,
     setFull, isOpen: () => root.classList.contains('open'), isFull: () => full,
     app: ensureApp,
     saveCard: card,

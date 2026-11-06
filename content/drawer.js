@@ -13,15 +13,19 @@ if (isTop && isHtml && !document.getElementById('cartmates-drawer')) start();
 
 function start() {
   const drawer = mountDrawer({ store, css, getProduct: () => extractProduct() });
-  // Live party: side tab + bottom bar. No party: on a product page, a "Go live" button (and Save) instead.
+  // The pull-out Cartmates handle shows on shopping pages and during a live party. Saving and going live
+  // happen inside the drawer, so there are no separate Save / Go live buttons. The toolbar icon opens it anywhere.
   let isProduct = false;
   let isLive = false;
   const paint = () => {
-    drawer.showTab(isLive);
-    drawer.showLive(!isLive && isProduct);
-    drawer.showSave(!isLive && isProduct);
+    drawer.showTab(isLive || isProduct);
+    drawer.showLive(false);
+    drawer.showSave(false);
   };
   paint();
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === 'cm-toggle') drawer.toggle();
+  });
   const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
 
   // Product pages: look a few times while the page finishes loading, and again when the address changes.

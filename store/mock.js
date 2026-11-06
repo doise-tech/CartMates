@@ -85,6 +85,7 @@ export function createMockStore({ signedIn = true } = {}) {
   let active = signedIn ? { listId: 'l1', partyId: 'pa1' } : null;
   let prefs = { saves: true, chat: true };
   let seen = { l1: ago(40 * MIN) };
+  let nav = null;
   let flags = { onboarded: signedIn };
   let online = ['u_me', 'u_priya'];
   const listeners = new Set();
@@ -376,6 +377,8 @@ export function createMockStore({ signedIn = true } = {}) {
     async setPrefs(next) { prefs = { ...next }; },
     async getSeen(listId) { return seen[listId] ?? null; },
     async setSeen(listId, iso) { seen[listId] = iso; },
+    async getNav() { return nav ? { ...nav } : null; },
+    async setNav(next) { nav = next ? { ...next } : null; },
     async getFlag(key) { return !!flags[key]; },
     async setFlag(key, value) { flags[key] = value; },
 

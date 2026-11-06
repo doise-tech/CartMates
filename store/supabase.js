@@ -11,6 +11,7 @@ const channels = new Map(); // live connections shared by everything on this pag
 const PREFS_KEY = 'cm_prefs';
 const SEEN_KEY = 'cm_seen';
 const FLAGS_KEY = 'cm_flags';
+const NAV_KEY = 'cm_nav';
 
 const local = {
   async get(key, fallback) {
@@ -309,6 +310,13 @@ export const store = {
   async setSeen(listId, iso) {
     const all = await local.get(SEEN_KEY, {});
     await local.set(SEEN_KEY, { ...all, [listId]: iso });
+  },
+  // Which screen the drawer was on last, so a new tab opens where you left off.
+  async getNav() {
+    return local.get(NAV_KEY, null);
+  },
+  async setNav(nav) {
+    await local.set(NAV_KEY, nav);
   },
   async getFlag(key) {
     return (await local.get(FLAGS_KEY, {}))[key] ?? false;

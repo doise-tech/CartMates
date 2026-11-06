@@ -9,6 +9,7 @@ const IN_CART = ['in_cart', 'claimed', 'bought'];
 const STATUS = { saved: 'Saved', in_cart: 'In cart', claimed: 'Claimed', bought: 'Bought' };
 const ONBOARDING = ['welcome', 'signin', 'signup', 'forgot', 'checkEmail', 'permissions'];
 const MAIN = ['home', 'party', 'cart'];
+const REMEMBER = ['home', 'list', 'item', 'party', 'cart', 'notifications', 'settings', 'profile', 'notifPrefs', 'history'];
 const TITLES = {
   newList: 'New list', startParty: 'Start a party', invite: 'Invite friends', join: 'Join with a code', share: 'Share list', joined: "You're in",
   notifications: 'Activity', settings: 'Settings', profile: 'Profile', notifPrefs: 'Notifications', history: 'Past parties',
@@ -101,6 +102,7 @@ export function createApp(root, store, opts = {}) {
     S.msg = null;
     S.confirmEnd = false;
     opts.onRoute?.(S.route);
+    saveNav();
     render();
     root.scrollTop = 0;
   }
@@ -108,8 +110,32 @@ export function createApp(root, store, opts = {}) {
     S.route = S.stack.pop() || { name: 'home' };
     S.msg = null;
     opts.onRoute?.(S.route);
+    saveNav();
     render();
   }
+  // Remember the screen (not the typing) so the next tab or the toolbar button reopens right here.
+  function saveNav() {
+    if (S.restoring || !S.user || !REMEMBER.includes(S.route.name)) return;
+    store.setNav?.({ name: S.route.name, listId: S.listId ?? null, itemId: S.route.itemId ?? null }).catch?.(() => {});
+  }
+
+  async function restoreNav(nav) {
+    if (!nav || !REMEMBER.includes(nav.name) || nav.name === 'home') return;
+    const withList = ['list', 'party', 'cart', 'item'];
+    if (withList.includes(nav.name)) {
+      if (!nav.listId || !S.lists.some((l) => l.id === nav.listId)) return;
+      if (S.listId !== nav.listId) await openList(nav.listId);
+      if (nav.name === 'item') {
+        if (!nav.itemId || !itemById(nav.itemId)) return go('list', {}, 'root');
+        S.thread = await store.loadThread(nav.itemId);
+        return go('item', { itemId: nav.itemId }, 'root');
+      }
+      if (nav.name === 'party' && !inParty()) return go('list', {}, 'root');
+      return go(nav.name, {}, 'root');
+    }
+    go(nav.name, {}, 'root');
+  }
+
   async function tab(name) {
     if (name === 'home') await run(refreshHome);
     if (name === 'party' && S.active && !inParty()) await run(() => openList(S.active.listId, S.active.partyId));
@@ -191,8 +217,13 @@ export function createApp(root, store, opts = {}) {
   async function init() {
     S.user = await store.getUser();
     if (!S.user) { S.listId = null; S.ctx = null; S.active = null; opts.onActive?.(null); return go('welcome', {}, 'root'); }
+    const nav = await store.getNav?.().catch(() => null);
+    S.restoring = true;
     go('home', {}, 'root');
     await run(afterSignIn);
+    await run(() => restoreNav(nav));
+    S.restoring = false;
+    saveNav();
     render();
   }
 

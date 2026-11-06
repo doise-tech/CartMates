@@ -23,14 +23,6 @@
   --r-lg: 16px;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #1b1612; --surface: #251f19; --ink: #f6eee5; --ink-2: #cdbfb0; --ink-3: #a8998a; --line: #3b3128;
-    --accent: #d4a074; --accent-ink: #1b1612; --accent-soft: #3a2d22; --live: #6fcf8a; --danger: #ff9a8a;
-    --warn-bg: #3b2e14; --warn-ink: #f1d28f; --ok-bg: #1f3524; --ok-ink: #a6e0b4; --toast: #f6eee5; --toast-ink: #1b1612;
-    color-scheme: dark;
-  }
-}
 :root[data-theme="dark"] {
   --bg: #1b1612; --surface: #251f19; --ink: #f6eee5; --ink-2: #cdbfb0; --ink-3: #a8998a; --line: #3b3128;
   --accent: #d4a074; --accent-ink: #1b1612; --accent-soft: #3a2d22; --live: #6fcf8a; --danger: #ff9a8a;
@@ -268,3 +260,5 @@ html, body { margin: 0; }
 .cm .iconbtn:hover { background: var(--accent-soft); color: var(--accent); }
 .cm .badge { background: var(--danger); }
 .tile::before, .tile::after { background: rgba(43, 35, 29, 0.14); }
+
+.cm.wide { width: 100%; }

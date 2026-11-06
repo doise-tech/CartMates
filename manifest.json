@@ -10,8 +10,7 @@
     "https://*.supabase.co/*"
   ],
   "action": {
-    "default_title": "Cartmates",
-    "default_popup": "popup/popup.html"
+    "default_title": "Cartmates"
   },
   "content_scripts": [
     {
@@ -37,5 +36,8 @@
         "<all_urls>"
       ]
     }
-  ]
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 }

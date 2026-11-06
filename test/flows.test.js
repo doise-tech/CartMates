@@ -375,3 +375,26 @@ test('save card shows what was detected, lets you correct it, and saves the corr
   assert.equal(item.price_at_save, 1599);
   assert.equal(item.variant, 'Colour: Sand · Size: King');
 });
+
+test('a new tab reopens on the screen you left (list, item), light and not home', async () => {
+  const store = createMockStore();
+  const first = createApp(root(), store, {});
+  apps.push(first);
+  await tick(60);
+  await click('Housewarming');
+  await tick(60);
+  assert.match(text(), /Linen napkins|Cold-pressed/);
+  const item = [...root().querySelectorAll('button')].find((b) => /Cold-pressed/.test(b.textContent));
+  assert.ok(item, 'item card');
+  item.click();
+  await tick(80);
+  assert.match(text(), /Remove from list|Talk it over/);
+  await first.destroy();
+  root().replaceChildren();
+  // a "new tab": a fresh app, same store (same saved screen)
+  const second = createApp(root(), store, {});
+  apps.push(second);
+  await tick(120);
+  assert.match(text(), /Talk it over/, `expected to land on the item, got: ${text().slice(0, 120)}`);
+  assert.equal(second.state().route.name, 'item');
+});
