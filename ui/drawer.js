@@ -39,7 +39,10 @@ const DRAWER_CSS = `
 .dhead button:focus-visible, .tab:focus-visible, .pill-save:focus-visible { outline: 2px solid var(--accent, #6c5ce7); outline-offset: 2px; }
 .drawer > .cm { flex: 1; width: 100%; min-height: 0; overflow-y: auto; }
 .pop { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: min(350px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; border-radius: 16px; background: var(--bg, #f4f4fa); border: 1px solid var(--line, #e2e1ed); box-shadow: 0 12px 40px rgba(20,19,28,.28); }
-.pop[hidden], .pill-save[hidden], .tab[hidden] { display: none; }
+.pill-live { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px 9px 14px; border: 0; border-radius: 999px 0 0 999px; background: var(--accent, #6c5ce7); color: var(--accent-ink, #fff); font: 700 13px var(--body, system-ui, sans-serif); cursor: pointer; box-shadow: -2px 4px 14px rgba(20,19,28,.22); }
+.pill-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; opacity: .9; }
+.pill-live:focus-visible { outline: 2px solid var(--accent, #6c5ce7); outline-offset: 2px; }
+.pop[hidden], .pill-save[hidden], .tab[hidden], .pill-live[hidden] { display: none; }
 .pop .cm { width: 100%; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
 `;
@@ -69,14 +72,21 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   const pop = h('div', { class: 'pop', hidden: true }, card.el);
 
   const saveBtn = h('button', { class: 'pill-save', type: 'button', hidden: true, 'aria-label': 'Save this product to a Cartmates list', onClick: () => openSave() }, 'Save');
+  const liveBtn = h('button', { class: 'pill-live', type: 'button', hidden: true, 'aria-label': 'Go live: start a shopping party', onClick: () => goLive() }, h('i'), 'Go live');
   const tab = h('button', { class: 'tab', type: 'button', 'aria-label': 'Open Cartmates', onClick: () => open() }, h('i'), 'Cartmates');
-  const root = h('div', { class: `root ${position === 'absolute' ? 'abs' : ''}`.trim() }, h('div', { class: 'dock' }, saveBtn, tab), drawer, pop);
+  const root = h('div', { class: `root ${position === 'absolute' ? 'abs' : ''}`.trim() }, h('div', { class: 'dock' }, liveBtn, saveBtn, tab), drawer, pop);
   shadow.append(root);
   parent.append(host);
 
   function ensureApp() {
     if (!app) app = createApp(appRoot, store, { ...appOpts, installUrl, onSavePage: () => openSave() });
     return app;
+  }
+
+  // The "Go live" button: open the drawer straight on the start-a-party screen (if you are signed in).
+  async function goLive() {
+    open();
+    try { if (await store.getUser()) ensureApp().go('startParty', {}, 'root'); } catch { /* the drawer stays on its first screen */ }
   }
 
   function open() {
@@ -123,7 +133,8 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
     app: ensureApp,
     saveCard: card,
     showSave: (on) => { saveBtn.hidden = !on; },
-    showTab: (on) => { tab.hidden = !on; if (!on) { close(); closeSave(); } },
+    showTab: (on) => { const was = !tab.hidden; tab.hidden = !on; if (was && !on) { close(); closeSave(); } },
+    showLive: (on) => { liveBtn.hidden = !on; },
     setTheme: (mode) => { if (mode) host.setAttribute('data-theme', mode); else host.removeAttribute('data-theme'); },
     destroy: async () => {
       if (destroyed) return;
