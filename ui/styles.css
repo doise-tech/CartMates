@@ -1,38 +1,40 @@
-/* Cartmates popup. One violet accent on cool neutrals. Tokens first; everything below reads them. */
+/* Cartmates. Warm cream and copper, with a serif for headings. Tokens first; everything below reads them. */
 :root {
-  --bg: #f4f4fa;
-  --surface: #ffffff;
-  --ink: #1c1b29;
-  --ink-2: #55546b;
-  --ink-3: #6b6a82;
-  --line: #e2e1ed;
-  --accent: #6c5ce7;
+  --bg: #faf6f0;
+  --surface: #fffdf9;
+  --ink: #2b231d;
+  --ink-2: #5a4d42;
+  --ink-3: #75675a;
+  --line: #e9ddcf;
+  --accent: #93643a;
   --accent-ink: #ffffff;
-  --accent-soft: #ecebfc;
-  --live: #178a5c;
-  --danger: #b73a34;
-  --warn-bg: #fbeed2;
-  --warn-ink: #7a4a08;
-  --ok-bg: #dcf3e8;
-  --ok-ink: #0f6a45;
-  --toast: #1c1b29;
+  --accent-soft: #f3e8da;
+  --live: #3e7d4f;
+  --danger: #b8402f;
+  --warn-bg: #fbf0d6;
+  --warn-ink: #7a5410;
+  --ok-bg: #e5efe0;
+  --ok-ink: #2f6b3f;
+  --toast: #2b231d;
   --toast-ink: #ffffff;
   --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --display: var(--body);
+  --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Playfair Display", "Book Antiqua", Georgia, serif;
+  --r: 10px;
+  --r-lg: 16px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #13121b; --surface: #1c1b28; --ink: #f1f0fa; --ink-2: #b6b5ca; --ink-3: #9998b2; --line: #2e2d40;
-    --accent: #8f82ff; --accent-ink: #13121b; --accent-soft: #2a2746; --live: #3ccb92; --danger: #ff8f88;
-    --warn-bg: #3a2c12; --warn-ink: #f3cf8a; --ok-bg: #12382a; --ok-ink: #8fe0bb; --toast: #f1f0fa; --toast-ink: #13121b;
+    --bg: #1b1612; --surface: #251f19; --ink: #f6eee5; --ink-2: #cdbfb0; --ink-3: #a8998a; --line: #3b3128;
+    --accent: #d4a074; --accent-ink: #1b1612; --accent-soft: #3a2d22; --live: #6fcf8a; --danger: #ff9a8a;
+    --warn-bg: #3b2e14; --warn-ink: #f1d28f; --ok-bg: #1f3524; --ok-ink: #a6e0b4; --toast: #f6eee5; --toast-ink: #1b1612;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #13121b; --surface: #1c1b28; --ink: #f1f0fa; --ink-2: #b6b5ca; --ink-3: #9998b2; --line: #2e2d40;
-  --accent: #8f82ff; --accent-ink: #13121b; --accent-soft: #2a2746; --live: #3ccb92; --danger: #ff8f88;
-  --warn-bg: #3a2c12; --warn-ink: #f3cf8a; --ok-bg: #12382a; --ok-ink: #8fe0bb; --toast: #f1f0fa; --toast-ink: #13121b;
+  --bg: #1b1612; --surface: #251f19; --ink: #f6eee5; --ink-2: #cdbfb0; --ink-3: #a8998a; --line: #3b3128;
+  --accent: #d4a074; --accent-ink: #1b1612; --accent-soft: #3a2d22; --live: #6fcf8a; --danger: #ff9a8a;
+  --warn-bg: #3b2e14; --warn-ink: #f1d28f; --ok-bg: #1f3524; --ok-ink: #a6e0b4; --toast: #f6eee5; --toast-ink: #1b1612;
   color-scheme: dark;
 }
 
@@ -211,3 +213,58 @@ html, body { margin: 0; }
 .cm.wide .top, .cm.wide .tabs { padding-inline: max(14px, calc((100% - 980px) / 2)); }
 .cm.wide .welcome { min-height: 0; }
 .cm .savecard .body { padding: 14px; }
+
+/* ---- The warm editorial look: serif headings, small-caps labels, soft borders, copper actions ---- */
+.cm h2 { font-weight: 600; font-size: 22px; letter-spacing: -0.01em; }
+.cm .empty h3, .cm .big, .cm .title, .cm .brand { font-family: var(--display); font-weight: 600; }
+.cm .title, .cm .brand { font-size: 17px; }
+.cm .brand i { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); position: relative; }
+.cm .brand i::after { content: ""; position: absolute; inset: 6px; background: var(--accent-ink); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+.cm .label { font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+.cm .sub { color: var(--ink-3); }
+.cm .top { border-bottom-color: var(--line); }
+.cm .tabs { padding-inline: 14px; gap: 4px; }
+.cm .tab { padding: 12px 0 10px; font-size: 13px; letter-spacing: 0.01em; flex-direction: row; writing-mode: horizontal-tb; }
+.cm .tab[aria-selected="true"] { border-bottom-width: 2px; color: var(--accent); font-weight: 600; }
+.cm .btn { border-radius: var(--r); border-color: var(--accent); background: transparent; color: var(--ink); font-weight: 500; }
+.cm .btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+.cm .btn.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; box-shadow: 0 1px 0 rgba(43, 35, 29, .12); }
+.cm .btn.primary:hover { filter: brightness(1.06); background: var(--accent); }
+.cm .btn.danger { border-color: var(--danger); }
+.cm .btn.danger:hover { background: transparent; filter: none; }
+.cm .btn:disabled { opacity: .55; cursor: not-allowed; }
+.cm .link { color: var(--accent); }
+.cm .link:hover { color: var(--ink); }
+.cm .field { border-radius: var(--r); background: var(--surface); }
+.cm .field::placeholder { color: var(--ink-3); opacity: .8; }
+.cm .field:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cm .card { border-radius: var(--r-lg); background: var(--surface); border-color: var(--line); box-shadow: 0 1px 2px rgba(43, 35, 29, .04); }
+.cm .card.live { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cm .rowcard:hover { border-color: var(--accent); }
+.cm .item { border-radius: var(--r-lg); border-color: var(--line); box-shadow: 0 1px 2px rgba(43, 35, 29, .04); }
+.cm .thumb { border-radius: 12px; }
+.cm .pill, .cm .tag, .cm .chip, .cm .like { letter-spacing: 0.01em; }
+.cm .pill { padding: 3px 10px; font-weight: 500; background: var(--accent-soft); color: var(--accent); }
+.cm .pill.live { color: var(--ok-ink); background: var(--ok-bg); }
+.cm .pill.in_cart, .cm .pill.saved { color: var(--accent); }
+.cm .tag { border-radius: 999px; padding: 2px 9px; background: var(--accent-soft); color: var(--ink-2); }
+.cm .chip { border-color: var(--line); }
+.cm .chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.cm .msg { border-radius: 12px; background: var(--accent-soft); color: var(--ink); border-left: 3px solid var(--accent); }
+.cm .msg.err { background: transparent; border: 1px solid var(--danger); border-left-width: 3px; color: var(--danger); }
+.cm .hint, .cm .note { border-radius: 12px; background: var(--accent-soft); }
+.cm .stat { background: var(--accent-soft); border-radius: 12px; }
+.cm .stat b { font-family: var(--display); font-weight: 600; }
+.cm .bubble { border-radius: 14px; background: var(--accent-soft); }
+.cm .bubble.mine { background: var(--accent); color: var(--accent-ink); }
+.cm .bubble.mine small { color: inherit; opacity: .8; }
+.cm .check input { accent-color: var(--accent); }
+.cm .price { font-family: var(--display); font-weight: 600; letter-spacing: 0; }
+.cm .check-badge { background: var(--ok-bg); color: var(--ok-ink); }
+.cm .art { background: var(--accent-soft); border-radius: 20px; }
+.cm .dots i.on { background: var(--accent); }
+.cm .shot[aria-pressed="true"], .cm .opt[aria-pressed="true"], .cm .opt[aria-current="true"] { border-color: var(--accent); }
+.cm .opt[aria-pressed="true"], .cm .opt[aria-current="true"] { color: var(--accent); }
+.cm .iconbtn:hover { background: var(--accent-soft); color: var(--accent); }
+.cm .badge { background: var(--danger); }
+.tile::before, .tile::after { background: rgba(43, 35, 29, 0.14); }

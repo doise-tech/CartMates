@@ -286,8 +286,10 @@ test('drawer: tab opens it, full view widens it, Escape closes it, Save pill sho
   assert.equal(q('.pill-save').hidden, true);
   d.showSave(true);
   assert.equal(q('.pill-save').hidden, false);
-  q('.tab').click(); await tick(80);
+  q('.edge').click(); await tick(80);
   assert.ok(d.isOpen());
+  assert.equal(q('.edge').className, 'edge'); // the pull-out handle must not share a class with the Lists / Party / Cart tabs
+  assert.ok(q('.drawer .tabs .tab'));
   assert.match(q('.drawer .cm').textContent, /Housewarming/);
   assert.match(q('.drawer .cm').textContent, /Save this page/);
   [...d.shadow.querySelectorAll('.dhead button')].find((b) => b.textContent === 'Full view').click();
