@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase.js';
 // item_tags, reactions, messages, profiles. RPCs: save_item, join_party.
 
 const ACTIVE_KEY = 'cm_active';
+const channels = new Map(); // live connections shared by everything on this page
 const PREFS_KEY = 'cm_prefs';
 const SEEN_KEY = 'cm_seen';
 const FLAGS_KEY = 'cm_flags';
@@ -253,22 +254,39 @@ export const store = {
   // ---- live updates. onChange({ kind: 'data' }) means "reload"; { kind: 'presence', online } lists who is here.
   async subscribe({ listId, partyId }, onChange) {
     const user = await me();
-    const channel = supabase.channel(`cm:${partyId || listId}`, { config: { presence: { key: user.id } } });
-    const bump = () => onChange({ kind: 'data' });
-    const watch = (table, filter) => channel.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, bump);
-    watch('list_items', `list_id=eq.${listId}`);
-    watch('item_tags', `list_id=eq.${listId}`);
-    watch('parties', `list_id=eq.${listId}`);
-    watch('reactions'); // no list column to filter on; row level security keeps it to your lists
-    if (partyId) {
-      watch('messages', `party_id=eq.${partyId}`);
-      watch('party_members', `party_id=eq.${partyId}`);
-      channel.on('presence', { event: 'sync' }, () => onChange({ kind: 'presence', online: Object.keys(channel.presenceState()) }));
+    const topic = `cm:${partyId || listId}`;
+    // The drawer and the party bar can both listen to the same list or party. They share one connection
+    // (a second one with the same name is refused once the first is running) and each gets every update.
+    let shared = channels.get(topic);
+    if (!shared) {
+      const channel = supabase.channel(topic, { config: { presence: { key: user.id } } });
+      shared = { channel, listeners: new Set(), online: null };
+      const fan = (ev) => shared.listeners.forEach((fn) => { try { fn(ev); } catch { /* one listener's trouble stays its own */ } });
+      const bump = () => fan({ kind: 'data' });
+      const watch = (table, filter) => channel.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, bump);
+      watch('list_items', `list_id=eq.${listId}`);
+      watch('item_tags', `list_id=eq.${listId}`);
+      watch('parties', `list_id=eq.${listId}`);
+      watch('reactions'); // no list column to filter on; row level security keeps it to your lists
+      if (partyId) {
+        watch('messages', `party_id=eq.${partyId}`);
+        watch('party_members', `party_id=eq.${partyId}`);
+        channel.on('presence', { event: 'sync' }, () => { shared.online = Object.keys(channel.presenceState()); fan({ kind: 'presence', online: shared.online }); });
+      }
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED' && partyId) channel.track({ at: Date.now() });
+      });
+      channels.set(topic, shared);
     }
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED' && partyId) channel.track({ at: Date.now() });
-    });
-    return () => supabase.removeChannel(channel);
+    shared.listeners.add(onChange);
+    if (shared.online) setTimeout(() => onChange({ kind: 'presence', online: shared.online }), 0);
+    return () => {
+      shared.listeners.delete(onChange);
+      if (!shared.listeners.size) {
+        if (channels.get(topic) === shared) channels.delete(topic);
+        return supabase.removeChannel(shared.channel);
+      }
+    };
   },
 
   // ---- things that stay on this device
