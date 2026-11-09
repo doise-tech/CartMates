@@ -393,7 +393,7 @@ test('a new tab reopens on the screen you left (list, item), light and not home'
   assert.ok(item, 'item card');
   item.click();
   await tick(80);
-  assert.match(text(), /Remove from list|Talk it over/);
+  assert.match(text(), /Comments \(/);
   await first.destroy();
   root().replaceChildren();
   // a "new tab": a fresh app, same store (same saved screen)
@@ -453,7 +453,7 @@ test('remove an item: straight away if untouched, asks first when it has votes o
   await click('Housewarming'); await tick();
   const posts = () => [...root().querySelectorAll('.post')];
   const busy = (p) => Number(p.querySelector('.score').textContent) !== 0 || Number(p.querySelector('.comment-toggle').textContent) > 0;
-  const rm = (p) => [...p.querySelectorAll('button')].find((b) => b.textContent === 'Remove').click();
+  const rm = (p) => [...p.querySelectorAll('button')].find((b) => b.classList.contains('trash')).click();
   const start = posts().length;
   const title = (p) => p.querySelector('.post-title').textContent;
   const target = title(posts().find((p) => busy(p)));

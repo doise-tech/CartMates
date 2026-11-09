@@ -1,5 +1,5 @@
 import { shareBlock } from './share.js';
-import { h, safeUrl, avatar, ago, thumb, heart, arrow, bubbleIcon, partyIcon, shareIcon } from '../lib/dom.js';
+import { h, safeUrl, avatar, ago, thumb, heart, arrow, bubbleIcon, confettiIcon, shareIcon, trashIcon, linkIcon } from '../lib/dom.js';
 import { money, total, lineMinor, fromMinor, splitEqual, splitByClaim, settleUp } from '../lib/split.js';
 
 // Every popup screen lives here. The screens talk only to `store`, so the same code runs
@@ -279,7 +279,7 @@ export function createApp(root, store, opts = {}) {
       return h('div', { class: 'top' },
         h('span', { class: 'row grow0' }, h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '\u2190'), h('span', { class: 'title' }, title)),
         h('span', { class: 'row' },
-          tip(live, partyIcon(), party, inParty() || c.liveParty ? 'on' : ''),
+          tip(live, confettiIcon(), party, inParty() || c.liveParty ? 'on' : ''),
           tip(`Share list (${c.members.length} ${c.members.length === 1 ? 'person' : 'people'})`, shareIcon(), () => go('share'))));
     }
     return h('div', { class: 'top' }, h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '←'), h('span', { class: 'title' }, title));
@@ -484,8 +484,8 @@ export function createApp(root, store, opts = {}) {
           voteButtons(i),
           h('button', { class: 'comment-toggle', type: 'button', 'aria-expanded': String(open), 'aria-label': `${n} ${n === 1 ? 'comment' : 'comments'}`, onClick: () => { if (open) S.openComments.delete(i.id); else S.openComments.add(i.id); render(); } }, bubbleIcon(), String(n))),
         h('span', { class: 'row' },
-          canRemove(i) ? h('button', { class: 'link tiny', type: 'button', 'aria-label': `Remove ${i.product.title} from the list`, onClick: () => askRemove(i) }, 'Remove') : null,
-          href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, 'Open in shop') : null)),
+          href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, 'Open in shop', linkIcon(14)) : null,
+          canRemove(i) ? h('button', { class: 'iconbtn tipbtn trash', type: 'button', 'aria-label': `Remove ${i.product.title} from the list`, 'data-tip': 'Remove from list', onClick: () => askRemove(i) }, trashIcon(17)) : null)),
       open ? commentThread(i) : (n ? h('button', { class: 'plain last-comment', type: 'button', onClick: () => { S.openComments.add(i.id); render(); } }, h('b', null, nm(i.comments[n - 1].user_id)), ` ${i.comments[n - 1].body}`) : null));
   }
 
@@ -529,7 +529,7 @@ export function createApp(root, store, opts = {}) {
     const close = () => { S.confirm = null; render(); };
     const box = h('div', { class: 'modal', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'rm-title', 'aria-describedby': 'rm-desc', onKeydown: (e) => { if (e.key === 'Escape') close(); } },
       h('h2', { id: 'rm-title' }, 'Remove this item?'),
-      h('p', { id: 'rm-desc' }, `"${m.item.product.title}" has ${bits}. Removing it deletes them for everyone on the list, and it can't be undone.`),
+      h('p', { id: 'rm-desc' }, `This item has ${bits}. Removing it deletes them for everyone on the list, and it can't be undone.`),
       h('div', { class: 'row' }, h('button', { class: 'btn grow', type: 'button', 'data-autofocus': '1', onClick: close }, 'Keep it'), h('button', { class: 'btn danger grow', type: 'button', onClick: m.doIt }, 'Remove it')));
     queueMicrotask(() => box.querySelector('[data-autofocus]')?.focus?.({ preventScroll: true }));
     return h('div', { class: 'modal-back', onClick: (e) => { if (e.target === e.currentTarget) close(); } }, box);
@@ -604,7 +604,7 @@ export function createApp(root, store, opts = {}) {
         h('div', { class: 'chips' }, c.tags.map((t) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(i.tag_ids.includes(t.id)), onClick: () => run(async () => { await store.setItemTag(c.list.id, i.id, t.id, !i.tag_ids.includes(t.id)); await loadCtx(); render(); }) }, t.name))),
         h('form', { class: 'row', onSubmit: addTag }, field('tag', { placeholder: 'New tag', 'aria-label': 'New tag', maxlength: 40 }), h('button', { class: 'btn', type: 'submit' }, 'Add'))),
       h('div', { class: 'col' }, h('span', { class: 'label' }, `Comments (${(i.comments || []).length})`), commentThread(i)),
-      canRemove(i) ? btn('Remove from list', () => askRemove(i, back), 'danger small') : null);
+      canRemove(i) ? h('button', { class: 'iconbtn tipbtn trash', type: 'button', 'aria-label': 'Remove from list', 'data-tip': 'Remove from list', onClick: () => askRemove(i, back) }, trashIcon(18)) : null);
   }
 
   // ------------------------------------------------------------------ parties
