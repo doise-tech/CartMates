@@ -80,7 +80,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   parent.append(host);
 
   function ensureApp() {
-    if (!app) app = createApp(appRoot, store, { ...appOpts, installUrl, onSavePage: () => openSave() });
+    if (!app) app = createApp(appRoot, store, { ...appOpts, installUrl, onSavePage: (listId) => openSave(listId) });
     return app;
   }
 
@@ -110,12 +110,12 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
     expandBtn.textContent = full ? 'Side view' : 'Full view';
     expandBtn.setAttribute('aria-pressed', String(full));
   }
-  async function openSave() {
+  async function openSave(listId) {
     root.classList.remove('open');
     setFull(false, false);
     root.classList.add('saving');
     pop.hidden = false;
-    await card.open();
+    await card.open(typeof listId === 'string' ? { listId } : {});
     pop.querySelector('input, button')?.focus?.({ preventScroll: true });
   }
   function closeSave() {

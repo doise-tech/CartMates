@@ -35,19 +35,21 @@ function seed() {
     const p = bySlug(slug);
     return {
       id: uid('it'), list_id: 'l1', product: clone(p), price_at_save: p.price, currency_at_save: 'INR', quantity: 1, note: null, variant: p.variant ?? null,
-      status, claimed_by: null, bought_at: null, added_by: by, party_id: 'pa1', created_at: ago(minutesAgo * MIN), reactions: [], tag_ids: [], ...extra,
+      status, claimed_by: null, bought_at: null, added_by: by, party_id: 'pa1', created_at: ago(minutesAgo * MIN), reactions: [], comments: [], tag_ids: [], ...extra,
     };
   };
   const planter = item('terracotta-planter', 'u_priya', 'saved', 95, { tag_ids: ['t2'] });
-  planter.reactions = [{ user_id: 'u_me', type: 'heart', created_at: ago(80 * MIN) }, { user_id: 'u_arjun', type: 'heart', created_at: ago(70 * MIN) }];
+  planter.reactions = [{ user_id: 'u_me', type: 'up', created_at: ago(80 * MIN) }, { user_id: 'u_arjun', type: 'up', created_at: ago(70 * MIN) }];
+  planter.comments = [{ id: 'c1', user_id: 'u_arjun', body: 'This would look great by the window.', created_at: ago(68 * MIN) }];
   const tiffin = item('tiffin-set', 'u_arjun', 'in_cart', 60, { tag_ids: ['t1'] });
-  tiffin.reactions = [{ user_id: 'u_priya', type: 'heart', created_at: ago(50 * MIN) }];
+  tiffin.reactions = [{ user_id: 'u_priya', type: 'up', created_at: ago(50 * MIN) }, { user_id: 'u_arjun', type: 'down', created_at: ago(45 * MIN) }];
+  tiffin.comments = [{ id: 'c2', user_id: 'u_arjun', body: 'Do we really need a fourth one?', created_at: ago(44 * MIN) }, { id: 'c3', user_id: 'u_priya', body: 'Ha. Fine, the steel one is better anyway.', created_at: ago(40 * MIN) }];
   const napkins = item('linen-napkins', 'u_arjun', 'claimed', 12, { claimed_by: 'u_priya', tag_ids: ['t1', 't3'] });
   const kettle = item('pour-over-kettle', 'u_priya', 'in_cart', 30, { tag_ids: ['t1'] });
   const oil = item('olive-oil', 'u_me', 'bought', 140, { claimed_by: 'u_me', bought_at: ago(20 * MIN), tag_ids: ['t1'] });
   const gift = {
     id: uid('it'), list_id: 'l2', product: { url: 'https://giftbox.example/p/diya-set', title: 'Hand-painted diya set', brand: null, image_url: null, price: 799, currency: 'INR', store_domain: 'giftbox.example', hue: '#f6d9a8', shape: 'tin' },
-    price_at_save: 799, currency_at_save: 'INR', quantity: 2, note: null, variant: null, status: 'saved', claimed_by: null, bought_at: null, added_by: 'u_priya', party_id: 'pa0', created_at: ago(9000 * MIN), reactions: [], tag_ids: [],
+    price_at_save: 799, currency_at_save: 'INR', quantity: 2, note: null, variant: null, status: 'saved', claimed_by: null, bought_at: null, added_by: 'u_priya', party_id: 'pa0', created_at: ago(9000 * MIN), reactions: [], comments: [], tag_ids: [],
   };
   return {
     lists: [
@@ -119,7 +121,7 @@ export function createMockStore({ signedIn = true } = {}) {
     const row = {
       id: uid('it'), list_id: listId, product: { url: p.url, title: p.title, brand: p.brand ?? null, image_url: p.image_url ?? null, price: p.price ?? null, currency: p.currency ?? null, store_domain: new URL(p.url).hostname, hue: p.hue, shape: p.shape },
       price_at_save: p.price ?? null, currency_at_save: p.currency ?? null, quantity: 1, note: null, variant: p.variant ?? null, images: p.images ?? [], options: p.options ?? [], status: 'saved', claimed_by: null, bought_at: null,
-      added_by: by, party_id: partyId ?? null, created_at: new Date().toISOString(), reactions: [], tag_ids: [],
+      added_by: by, party_id: partyId ?? null, created_at: new Date().toISOString(), reactions: [], comments: [], images: p.images ?? [], options: p.options ?? [], tag_ids: [],
     };
     db.items[listId] = db.items[listId] || [];
     db.items[listId].unshift(row);
@@ -332,6 +334,28 @@ export function createMockStore({ signedIn = true } = {}) {
       db.items[it.list_id] = db.items[it.list_id].filter((x) => x.id !== itemId);
       emit();
     },
+    async vote(itemId, dir) {
+      needUser();
+      const it = itemById(itemId);
+      const i = it.reactions.findIndex((r) => r.user_id === user.id);
+      const now = i >= 0 ? (it.reactions[i].type === 'down' ? 'down' : 'up') : null;
+      if (i >= 0) it.reactions.splice(i, 1);
+      if (now !== dir) it.reactions.push({ user_id: user.id, type: dir, created_at: new Date().toISOString() });
+      emit();
+    },
+    async addComment(itemId, body) {
+      needUser();
+      const it = itemById(itemId);
+      const text = String(body || '').trim().slice(0, 1000);
+      if (!it || !text) return;
+      (it.comments ||= []).push({ id: uid('c'), user_id: user.id, body: text, created_at: new Date().toISOString() });
+      emit();
+    },
+    async deleteComment(commentId) {
+      needUser();
+      for (const list of Object.values(db.items)) for (const it of list) it.comments = (it.comments || []).filter((c) => !(c.id === commentId && c.user_id === user.id));
+      emit();
+    },
     async toggleReaction(itemId) {
       needUser();
       const it = itemById(itemId);
@@ -364,7 +388,7 @@ export function createMockStore({ signedIn = true } = {}) {
       emit();
     },
     async loadThread(itemId) {
-      return clone(Object.values(db.messages).flat().filter((m) => m.item_id === itemId).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)));
+      return clone((itemById(itemId)?.comments || []).slice().sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)));
     },
 
     async subscribe({ partyId }, onChange) {
@@ -400,10 +424,10 @@ export function createMockStore({ signedIn = true } = {}) {
       friendReacts() {
         const { listId } = this.target();
         const it = (db.items[listId] || []).find((i) => !i.reactions.some((r) => r.user_id === 'u_arjun'));
-        if (!it) return 'Arjun already liked everything';
-        it.reactions.push({ user_id: 'u_arjun', type: 'heart', created_at: new Date().toISOString() });
+        if (!it) return 'Arjun already voted on everything';
+        it.reactions.push({ user_id: 'u_arjun', type: 'up', created_at: new Date().toISOString() });
         emit();
-        return `Arjun liked ${it.product.title}`;
+        return `Arjun upvoted ${it.product.title}`;
       },
       friendChats() {
         const { partyId } = this.target();
@@ -413,6 +437,16 @@ export function createMockStore({ signedIn = true } = {}) {
         db.messages[partyId].push({ id: uid('m'), party_id: partyId, user_id: 'u_priya', body, item_id: null, created_at: new Date().toISOString() });
         emit();
         return `Priya: ${body}`;
+      },
+      friendComments() {
+        const { listId } = this.target();
+        const it = (db.items[listId] || [])[0];
+        if (!it) return 'Nothing saved to comment on yet';
+        const lines = ['Love this one.', 'Is it available in a smaller size?', 'I saw this cheaper somewhere else.', 'Yes please, add it to the cart.'];
+        const body = lines[Math.floor(Math.random() * lines.length)];
+        (it.comments ||= []).push({ id: uid('c'), user_id: 'u_priya', body, created_at: new Date().toISOString() });
+        emit();
+        return `Priya on ${it.product.title}: ${body}`;
       },
       friendClaims() {
         const { listId } = this.target();

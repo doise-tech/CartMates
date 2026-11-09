@@ -131,7 +131,7 @@ export const store = {
       q.from('list_members').select('user_id, role, joined_at, profile:profiles(display_name, avatar_url)').eq('list_id', listId),
       q
         .from('list_items')
-        .select('*, product:products(url, title, brand, image_url, price, currency, store_domain), reactions(user_id, type, created_at), item_tags(tag_id)')
+        .select('*, product:products(url, title, brand, image_url, price, currency, store_domain), reactions(user_id, type, created_at), item_tags(tag_id), item_comments(id, user_id, body, created_at)')
         .eq('list_id', listId)
         .is('removed_at', null)
         .order('created_at', { ascending: false }),
@@ -141,7 +141,11 @@ export const store = {
     const ctx = {
       list: ok(list),
       members: ok(members).map((m) => ({ ...m, profile: { id: m.user_id, ...(m.profile || {}) } })),
-      items: ok(items).map(({ item_tags, ...i }) => ({ ...i, tag_ids: (item_tags || []).map((t) => t.tag_id) })),
+      items: ok(items).map(({ item_tags, item_comments, ...i }) => ({
+        ...i,
+        tag_ids: (item_tags || []).map((t) => t.tag_id),
+        comments: (item_comments || []).slice().sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)),
+      })),
       tags: ok(tags),
       liveParty: ok(liveParty)[0] ?? null,
       party: null,
@@ -249,6 +253,25 @@ export const store = {
     if (data) ok(await supabase.from('reactions').delete().eq('item_id', itemId).eq('user_id', user.id));
     else ok(await supabase.from('reactions').insert({ item_id: itemId, user_id: user.id, type: 'heart' }));
   },
+  // Voting: one vote per person per item. 'up' or 'down'; the same one again takes it back.
+  // (Older likes were saved as 'heart'; they count as up.)
+  async vote(itemId, dir) {
+    const user = await needMe();
+    const { data } = await supabase.from('reactions').select('type').eq('item_id', itemId).eq('user_id', user.id).maybeSingle();
+    const now = data ? (data.type === 'down' ? 'down' : 'up') : null;
+    if (now === dir) ok(await supabase.from('reactions').delete().eq('item_id', itemId).eq('user_id', user.id));
+    else ok(await supabase.from('reactions').upsert({ item_id: itemId, user_id: user.id, type: dir }, { onConflict: 'item_id,user_id' }));
+  },
+  // Comments on an item. Open to everyone on the list, with or without a live party.
+  async addComment(itemId, body) {
+    const user = await needMe();
+    const text = String(body || '').trim().slice(0, 1000);
+    if (!text) return;
+    ok(await supabase.from('item_comments').insert({ item_id: itemId, user_id: user.id, body: text }));
+  },
+  async deleteComment(commentId) {
+    ok(await supabase.from('item_comments').delete().eq('id', commentId));
+  },
   async addTag(listId, name) {
     return ok(await supabase.from('tags').insert({ list_id: listId, name: name.trim() }).select('id, name').single());
   },
@@ -263,7 +286,7 @@ export const store = {
     ok(await supabase.from('messages').insert({ party_id: partyId, user_id: user.id, body: body.trim(), item_id: itemId }));
   },
   async loadThread(itemId) {
-    return ok(await supabase.from('messages').select('id, user_id, body, created_at').eq('item_id', itemId).order('created_at'));
+    return ok(await supabase.from('item_comments').select('id, user_id, body, created_at').eq('item_id', itemId).order('created_at'));
   },
 
   // ---- live updates. onChange({ kind: 'data' }) means "reload"; { kind: 'presence', online } lists who is here.
@@ -282,6 +305,7 @@ export const store = {
       watch('list_items', `list_id=eq.${listId}`);
       watch('item_tags', `list_id=eq.${listId}`);
       watch('parties', `list_id=eq.${listId}`);
+      watch('item_comments'); // same: row level security keeps it to your lists
       watch('reactions'); // no list column to filter on; row level security keeps it to your lists
       if (partyId) {
         watch('messages', `party_id=eq.${partyId}`);

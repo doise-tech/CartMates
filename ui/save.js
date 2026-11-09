@@ -6,7 +6,7 @@ import { shareBlock } from './share.js';
 // The Pinterest-style card: you are on a product page, pick a list (or make one right here),
 // and it is saved. Then you can share that list. Works any time, with or without a live party.
 export function createSaveCard({ store, getProduct, installUrl, onClose, onView }) {
-  const st = { view: 'pick', user: null, product: null, lists: [], saved: new Set(), picked: null, edit: false, busy: false, msg: null, err: false };
+  const st = { view: 'pick', preset: null, user: null, product: null, lists: [], saved: new Set(), picked: null, edit: false, busy: false, msg: null, err: false };
   const el = h('div', { class: 'cm savecard', role: 'dialog', 'aria-label': 'Save to a list' });
   let nameBox = null;
 
@@ -21,13 +21,14 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
     try { await navigator.clipboard.writeText(text); say(done); } catch { say(`Copy this: ${text}`); }
   };
 
-  async function open() {
-    st.view = 'pick'; st.msg = null; st.picked = null; st.edit = false;
+  async function open(opts = {}) {
+    st.view = 'pick'; st.msg = null; st.picked = null; st.edit = false; st.preset = null;
     st.user = await store.getUser();
     st.product = getProduct();
     if (st.user) {
       st.lists = (await store.loadHome()).lists;
       st.saved = new Set(st.product ? await store.savedIn(st.product.url).catch(() => []) : []);
+      st.preset = opts.listId ? st.lists.find((l) => l.id === opts.listId) || null : null;
     }
     draw();
   }
@@ -89,7 +90,11 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
     } else {
       body = [header('Save to a list'), banner,
         p ? detected(p) : null,
-        st.lists.length ? h('div', { class: 'col' }, st.lists.map((l) => {
+        st.preset ? (st.saved.has(st.preset.id)
+          ? h('div', { class: 'row' }, h('span', { class: 'pill bought' }, 'Saved'), h('span', { class: 'sub' }, `Already in ${st.preset.name}`), link('Share or view', () => showDone(st.preset)))
+          : btn(`Save to ${st.preset.name}`, () => saveTo(st.preset), 'primary')) : null,
+        st.preset && st.lists.length > 1 ? h('span', { class: 'label' }, 'Or save to another list') : null,
+        st.lists.length ? h('div', { class: 'col' }, st.lists.filter((l) => !st.preset || l.id !== st.preset.id).map((l) => {
           const has = st.saved.has(l.id);
           return h('button', { class: 'card rowcard', type: 'button', disabled: st.busy, 'aria-label': has ? `${l.name}, already saved. Share or view it` : `Save to ${l.name}`, onClick: () => (has ? showDone(l) : saveTo(l)) },
             h('span', { class: 'col tight grow0' }, h('b', { class: 'clip' }, l.name), h('span', { class: 'sub' }, l.role === 'owner' ? 'Your list' : 'Shared with you')),

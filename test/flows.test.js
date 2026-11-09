@@ -81,10 +81,12 @@ test('item: like, tag, discuss, claim, remove', async () => {
   const { app, store } = await boot();
   await click('Housewarming');
   await click('Pour-over');
-  const like = () => root().querySelector('.like');
-  const before = like().textContent;
-  like().click(); await tick();
-  assert.notEqual(like().textContent, before, 'like toggles');
+  const score = () => root().querySelector('.score').textContent;
+  const before = score();
+  root().querySelector('.vote.up').click(); await tick();
+  assert.notEqual(score(), before, 'upvote changes the score');
+  root().querySelector('.vote.down').click(); await tick();
+  assert.equal(root().querySelector('.vote.down').getAttribute('aria-pressed'), 'true', 'downvote sticks');
   type('tag', 'urgent');
   await click('Add');
   assert.match(text(), /urgent/);
@@ -395,7 +397,7 @@ test('a new tab reopens on the screen you left (list, item), light and not home'
   const second = createApp(root(), store, {});
   apps.push(second);
   await tick(120);
-  assert.match(text(), /Talk it over/, `expected to land on the item, got: ${text().slice(0, 120)}`);
+  assert.match(text(), /Comments \(/, `expected to land on the item, got: ${text().slice(0, 120)}`);
   assert.equal(second.state().route.name, 'item');
 });
 
@@ -419,4 +421,24 @@ test('sign-up for an email that already has an account says so and offers sign i
   assert.match(text(), /Welcome back/);
   // the email box is a login name so Chrome offers saved passwords, not address-book entries
   assert.equal(root().querySelector('[name="email"]').getAttribute('autocomplete'), 'username');
+});
+
+test('list is a feed: save-this-page card, vote, comment inline, sort', async () => {
+  let saved = null;
+  const { app } = await boot({ app: { onSavePage: (id) => { saved = id; } } });
+  await click('Housewarming'); await tick();
+  assert.ok(root().querySelector('.feed .post'), 'items show as posts');
+  await click('Save');
+  assert.ok(saved, 'save-this-page asks the drawer to save into this list');
+  const post = root().querySelector('.post');
+  const before = post.querySelector('.score').textContent;
+  post.querySelector('.vote.up').click(); await tick();
+  assert.notEqual(root().querySelector('.post .score').textContent, before);
+  root().querySelector('.comment-toggle').click(); await tick();
+  type('text', 'Love this one');
+  await click('Post');
+  assert.match(text(), /Love this one/);
+  await click('Top voted');
+  assert.equal(root().querySelector('.chips [aria-pressed="true"]') !== null, true);
+  await app.destroy();
 });

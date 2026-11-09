@@ -1,5 +1,5 @@
 import { shareBlock } from './share.js';
-import { h, safeUrl, avatar, ago, thumb, heart } from '../lib/dom.js';
+import { h, safeUrl, avatar, ago, thumb, heart, arrow, bubbleIcon } from '../lib/dom.js';
 import { money, total, lineMinor, fromMinor, splitEqual, splitByClaim, settleUp } from '../lib/split.js';
 
 // Every popup screen lives here. The screens talk only to `store`, so the same code runs
@@ -27,7 +27,7 @@ export function createApp(root, store, opts = {}) {
     lists: [], history: [],
     active: null, // { listId, partyId } of the party you are in, if any
     listId: null, partyId: null, ctx: null, thread: [], online: [],
-    filter: 'all', splitMode: 'equal', splitWith: null,
+    filter: 'all', sort: 'new', openComments: new Set(), splitMode: 'equal', splitWith: null,
     slide: 0, msg: null, prefs: { saves: true, chat: true }, seen: null, unsub: null, confirmEnd: false,
   };
   let reloadTimer;
@@ -244,7 +244,8 @@ export function createApp(root, store, opts = {}) {
     const add = (at, text, route) => out.push({ at, text, route, unread: !S.seen || Date.parse(at) > Date.parse(S.seen) });
     for (const i of c.items) {
       if (i.added_by !== me() && S.prefs.saves) add(i.created_at, `${nm(i.added_by)} saved ${i.product.title}`, { name: 'item', itemId: i.id });
-      for (const r of i.reactions) if (r.user_id !== me() && S.prefs.saves) add(r.created_at, `${nm(r.user_id)} liked ${i.product.title}`, { name: 'item', itemId: i.id });
+      for (const r of i.reactions) if (r.user_id !== me() && S.prefs.saves) add(r.created_at, `${nm(r.user_id)} ${r.type === 'down' ? 'downvoted' : 'upvoted'} ${i.product.title}`, { name: 'item', itemId: i.id });
+      for (const m of i.comments || []) if (m.user_id !== me() && S.prefs.chat) add(m.created_at, `${nm(m.user_id)} commented on ${i.product.title}: ${m.body}`, { name: 'item', itemId: i.id });
     }
     for (const m of c.messages) if (m.user_id !== me() && S.prefs.chat) add(m.created_at, `${nm(m.user_id)}: ${m.body}`, m.item_id ? { name: 'item', itemId: m.item_id } : { name: 'party' });
     for (const r of c.here) if (r.user_id !== me()) add(r.joined_at, `${nm(r.user_id)} joined the party`, { name: 'party' });
@@ -412,9 +413,67 @@ export function createApp(root, store, opts = {}) {
       h('button', { class: 'btn primary', type: 'submit' }, 'Create list'));
   }
 
-  function likeButton(i) {
-    const mine = i.reactions.some((r) => r.user_id === me());
-    return h('button', { class: 'like', type: 'button', 'aria-pressed': String(mine), 'aria-label': `${mine ? 'Unlike' : 'Like'} ${i.product.title}`, onClick: () => run(async () => { await store.toggleReaction(i.id); await loadCtx(); render(); }) }, heart(mine), String(i.reactions.length));
+  // ------------------------------------------------------------------ votes, comments and the feed
+
+  const voteOf = (i, id = me()) => { const r = i.reactions.find((x) => x.user_id === id); return r ? (r.type === 'down' ? 'down' : 'up') : null; };
+  const scoreOf = (i) => i.reactions.reduce((n, r) => n + (r.type === 'down' ? -1 : 1), 0);
+
+  function voteButtons(i) {
+    const mine = voteOf(i);
+    const cast = (dir) => run(async () => { await store.vote(i.id, dir); await loadCtx(); render(); });
+    const names = (dir) => i.reactions.filter((r) => (r.type === 'down') === (dir === 'down')).map((r) => nm(r.user_id)).join(', ');
+    return h('span', { class: 'votes', role: 'group', 'aria-label': 'Vote' },
+      h('button', { class: 'vote up', type: 'button', 'aria-pressed': String(mine === 'up'), 'aria-label': `Upvote ${i.product.title}`, title: names('up') || 'Upvote', onClick: () => cast('up') }, arrow(true, mine === 'up')),
+      h('span', { class: 'score', 'aria-label': `Score ${scoreOf(i)}` }, String(scoreOf(i))),
+      h('button', { class: 'vote down', type: 'button', 'aria-pressed': String(mine === 'down'), 'aria-label': `Downvote ${i.product.title}`, title: names('down') || 'Downvote', onClick: () => cast('down') }, arrow(false, mine === 'down')));
+  }
+
+  // The conversation under an item. Anyone on the list can post, party or not.
+  function commentThread(i) {
+    const post = (e) => {
+      e.preventDefault();
+      const input = e.target.elements.text;
+      const body = input.value.trim();
+      if (!body) return;
+      input.value = '';
+      run(async () => { await store.addComment(i.id, body); await loadCtx(); S.openComments.add(i.id); render(); });
+    };
+    const list = i.comments || [];
+    return h('div', { class: 'col tight comments' },
+      list.length ? h('div', { class: 'cmts' }, list.map((m) => h('div', { class: 'cmt' },
+        avatar(person(m.user_id), 24),
+        h('div', { class: 'cmt-body' },
+          h('div', { class: 'row sp' }, h('small', null, h('b', null, nm(m.user_id)), ` · ${ago(m.created_at)}`),
+            m.user_id === me() ? h('button', { class: 'link tiny', type: 'button', 'aria-label': 'Delete your comment', onClick: () => run(async () => { await store.deleteComment(m.id); await loadCtx(); render(); }) }, 'Delete') : null),
+          h('span', null, m.body)))))
+        : h('p', { class: 'sub' }, 'No comments yet. Be the first.'),
+      h('form', { class: 'row', onSubmit: post },
+        field('text', { placeholder: 'Add a comment', 'aria-label': `Comment on ${i.product.title}`, maxlength: 1000, 'data-k': `c:${i.id}` }),
+        h('button', { class: 'btn primary small', type: 'submit' }, 'Post')));
+  }
+
+  // One saved item, laid out like a post: who saved it, the picture, the details, then vote and comment.
+  function feedPost(i) {
+    const c = S.ctx;
+    const tagName = (id) => c.tags.find((t) => t.id === id)?.name;
+    const open = S.openComments.has(i.id);
+    const n = (i.comments || []).length;
+    const href = safeUrl(i.product.url);
+    return h('article', { class: 'post' },
+      h('div', { class: 'row sp' },
+        h('span', { class: 'row' }, avatar(person(i.added_by), 30), h('span', { class: 'col tight' }, h('b', null, nm(i.added_by)), h('small', { class: 'sub' }, `saved ${ago(i.created_at)}`))),
+        i.status !== 'saved' ? h('span', { class: `pill ${i.status}` }, STATUS[i.status]) : null),
+      h('button', { class: 'plain post-open', type: 'button', 'aria-label': `Open ${i.product.title}`, onClick: () => run(() => openItem(i.id)) },
+        thumb(i.product, 'hero-thumb'),
+        h('span', { class: 'post-title' }, i.product.title)),
+      h('div', { class: 'row sp' }, h('span', { class: 'price' }, priceText(i)), i.product.brand ? h('span', { class: 'sub clip' }, i.product.brand) : null),
+      i.variant || i.tag_ids.length ? h('div', { class: 'tags' }, ...(i.variant ? i.variant.split(' · ').map((v) => h('span', { class: 'tag' }, v)) : []), ...i.tag_ids.map((t) => tagName(t) && h('span', { class: 'tag alt' }, tagName(t)))) : null,
+      h('div', { class: 'row sp post-actions' },
+        h('span', { class: 'row' },
+          voteButtons(i),
+          h('button', { class: 'comment-toggle', type: 'button', 'aria-expanded': String(open), 'aria-label': `${n} ${n === 1 ? 'comment' : 'comments'}`, onClick: () => { if (open) S.openComments.delete(i.id); else S.openComments.add(i.id); render(); } }, bubbleIcon(), String(n))),
+        href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, 'Open in shop') : null),
+      open ? commentThread(i) : (n ? h('button', { class: 'plain last-comment', type: 'button', onClick: () => { S.openComments.add(i.id); render(); } }, h('b', null, nm(i.comments[n - 1].user_id)), ` ${i.comments[n - 1].body}`) : null));
   }
 
   function listScreen() {
@@ -422,6 +481,7 @@ export function createApp(root, store, opts = {}) {
     if (!c) return h('div', { class: 'body' }, h('div', { class: 'empty' }, h('h3', null, 'List unavailable'), btn('Back to lists', () => go('home', {}, 'root'))));
     const tagName = (id) => c.tags.find((t) => t.id === id)?.name;
     const shown = c.items.filter((i) => S.filter === 'all' || (S.filter === 'cart' ? IN_CART.includes(i.status) : i.tag_ids.includes(S.filter)));
+    const feed = S.sort === 'top' ? shown.slice().sort((a, b) => scoreOf(b) - scoreOf(a) || Date.parse(b.created_at) - Date.parse(a.created_at)) : shown;
     const partyCard = inParty()
       ? h('div', { class: 'card live col' }, h('div', { class: 'row sp' }, h('b', null, c.party.label || 'Live party'), h('span', { class: 'pill live' }, `${onlineIds().length || 1} here`)), btn('Open party', () => tab('party'), 'small primary'))
       : c.liveParty
@@ -430,14 +490,13 @@ export function createApp(root, store, opts = {}) {
     return h('div', { class: 'body' },
       partyCard,
       h('div', { class: 'card row sp' }, h('span', { class: 'col tight grow0' }, h('b', null, `${c.members.length} ${c.members.length === 1 ? 'person' : 'people'} on this list`), h('span', { class: 'sub' }, 'Invite friends with a code.')), btn('Share list', () => go('share'), 'small primary')),
-      h('div', { class: 'chips' }, [['all', 'All'], ...c.tags.map((t) => [t.id, t.name]), ['cart', 'In cart']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.filter === key), onClick: () => { S.filter = key; render(); } }, label))),
+      opts.onSavePage ? h('div', { class: 'card row sp' }, h('span', { class: 'col tight grow0' }, h('b', null, 'Save this page'), h('span', { class: 'sub clip' }, `Add what you are looking at to ${c.list.name}.`)), btn('Save', () => opts.onSavePage(c.list.id), 'small primary')) : null,
+      h('div', { class: 'row sp wrap' },
+        h('div', { class: 'chips' }, [['all', 'All'], ...c.tags.map((t) => [t.id, t.name]), ['cart', 'In cart']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.filter === key), onClick: () => { S.filter = key; render(); } }, label))),
+        h('div', { class: 'chips', role: 'group', 'aria-label': 'Sort' }, [['new', 'Newest'], ['top', 'Top voted']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.sort === key), onClick: () => { S.sort = key; render(); } }, label)))),
       shown.length
-        ? h('div', { class: 'grid' }, shown.map((i) => h('div', { class: 'item' },
-            h('button', { class: 'plain', type: 'button', 'aria-label': `Open ${i.product.title}`, onClick: () => run(() => openItem(i.id)) }, thumb(i.product), h('span', { class: 't' }, i.product.title)),
-            h('div', { class: 'row sp' }, h('span', { class: 'price' }, priceText(i)), likeButton(i)),
-            h('div', { class: 'row sp' }, h('span', { class: 'sub' }, nm(i.added_by)), i.status !== 'saved' ? h('span', { class: `pill ${i.status}` }, STATUS[i.status]) : null),
-            i.tag_ids.length ? h('div', { class: 'tags' }, i.tag_ids.map((t) => tagName(t) && h('span', { class: 'tag' }, tagName(t)))) : null)))
-        : h('div', { class: 'empty' }, h('h3', null, c.items.length ? 'Nothing here' : 'Nothing saved yet'), h('p', null, c.items.length ? 'Try a different filter.' : 'Start a party, open a shop, and press Save item in the Cartmates bar.')),
+        ? h('div', { class: 'feed' }, feed.map(feedPost))
+        : h('div', { class: 'empty' }, h('h3', null, c.items.length ? 'Nothing here' : 'Nothing saved yet'), h('p', null, c.items.length ? 'Try a different filter.' : 'Open a shop and press Save this page above. Everyone on the list can vote and comment on what you add.')),
       h('div', { class: 'col' },
         h('span', { class: 'label' }, `People (${c.members.length})`),
         h('div', { class: 'card col' }, c.members.map((m) => h('div', { class: 'share' },
@@ -462,16 +521,9 @@ export function createApp(root, store, opts = {}) {
     if (!i) return h('div', { class: 'body' }, h('div', { class: 'empty' }, h('h3', null, 'This item was removed'), btn('Back', back)));
     const c = S.ctx;
     const href = safeUrl(i.product.url);
-    const likers = i.reactions.map((r) => nm(r.user_id));
-    const canPost = inParty();
-    const post = (e) => {
-      e.preventDefault();
-      const input = e.target.elements.text;
-      const body = input.value.trim();
-      if (!body) return;
-      input.value = '';
-      run(async () => { await store.sendMessage(S.partyId, body, i.id); await loadCtx(); render(); });
-    };
+    const ups = i.reactions.filter((r) => r.type !== 'down').map((r) => nm(r.user_id));
+    const downs = i.reactions.filter((r) => r.type === 'down').map((r) => nm(r.user_id));
+    const voteSummary = [ups.length ? `${ups.join(', ')} upvoted` : '', downs.length ? `${downs.join(', ')} downvoted` : ''].filter(Boolean).join(' · ') || 'No votes yet';
     const addTag = (e) => {
       e.preventDefault();
       const input = e.target.elements.tag;
@@ -513,18 +565,12 @@ export function createApp(root, store, opts = {}) {
         href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, `Open at ${i.product.store_domain || 'the shop'}`) : null),
       optionRows,
       h('div', { class: 'card col' }, h('span', { class: 'label' }, 'Buying'), h('div', { class: 'row wrap' }, itemActions(i))),
-      h('div', { class: 'row' }, likeButton(i), h('span', { class: 'sub' }, likers.length ? `${likers.join(', ')} liked this` : 'Be the first to like this')),
+      h('div', { class: 'row' }, voteButtons(i), h('span', { class: 'sub' }, voteSummary)),
       h('div', { class: 'col' },
         h('span', { class: 'label' }, 'Tags'),
         h('div', { class: 'chips' }, c.tags.map((t) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(i.tag_ids.includes(t.id)), onClick: () => run(async () => { await store.setItemTag(c.list.id, i.id, t.id, !i.tag_ids.includes(t.id)); await loadCtx(); render(); }) }, t.name))),
         h('form', { class: 'row', onSubmit: addTag }, field('tag', { placeholder: 'New tag', 'aria-label': 'New tag', maxlength: 40 }), h('button', { class: 'btn', type: 'submit' }, 'Add'))),
-      h('div', { class: 'col' },
-        h('span', { class: 'label' }, 'Talk it over'),
-        S.thread.length ? h('div', { class: 'thread' }, S.thread.map((m) => h('div', { class: `bubble ${m.user_id === me() ? 'mine' : ''}` }, h('small', null, `${nm(m.user_id)} · ${ago(m.created_at)}`), m.body)))
-          : h('p', { class: 'sub' }, 'No messages about this item yet.'),
-        canPost
-          ? h('form', { class: 'row', onSubmit: post }, field('text', { placeholder: 'Say something about this', 'aria-label': 'Message', maxlength: 1000 }), h('button', { class: 'btn primary', type: 'submit' }, 'Post'))
-          : h('p', { class: 'sub' }, 'Chat opens while a party is live.')),
+      h('div', { class: 'col' }, h('span', { class: 'label' }, `Comments (${(i.comments || []).length})`), commentThread(i)),
       i.added_by === me() || isOwner() ? btn('Remove from list', () => run(async () => { await store.removeItem(i.id); await loadCtx(); back(); }), 'danger small') : null);
   }
 

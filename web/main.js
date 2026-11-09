@@ -215,7 +215,7 @@ function drawFlows() {
 function say(text) { $('says').textContent = text; }
 function simulators() {
   const sims = [
-    ['Priya saves an item', 'friendSaves'], ['Arjun likes an item', 'friendReacts'], ['Priya sends a message', 'friendChats'],
+    ['Priya saves an item', 'friendSaves'], ['Arjun upvotes an item', 'friendReacts'], ['Priya comments on an item', 'friendComments'], ['Priya sends a message', 'friendChats'],
     ['Arjun claims from the cart', 'friendClaims'], ['A friend joins', 'friendJoins'],
   ];
   $('sims').replaceChildren(...sims.map(([label, fn]) => h('button', { type: 'button', onClick: () => say(d[fn]()) }, label)));
