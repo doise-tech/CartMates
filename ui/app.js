@@ -307,7 +307,13 @@ export function createApp(root, store, opts = {}) {
       const f = e.target.elements;
       run(async () => {
         const email = f.email.value.trim();
-        const result = signup ? await store.signUp(email, f.password.value, f.name.value.trim()) : await store.signIn(email, f.password.value);
+        let result;
+        try {
+          result = signup ? await store.signUp(email, f.password.value, f.name.value.trim()) : await store.signIn(email, f.password.value);
+        } catch (err) {
+          if (!signup && /invalid login credentials/i.test(err?.message || '')) throw new Error("That email and password don't match. Tap Show to check for typos, or use Forgot password below.");
+          throw err;
+        }
         if (!result.user) { S.pendingEmail = email; S.checkKind = 'confirm'; return go('checkEmail', {}, 'replace'); }
         S.user = result.user;
         await afterSignIn();
