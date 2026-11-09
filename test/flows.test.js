@@ -447,3 +447,26 @@ test('list is a feed: save-this-page card, vote, comment inline, sort', async ()
   assert.equal(root().querySelector('.chips [aria-pressed="true"]') !== null, true);
   await app.destroy();
 });
+
+test('remove an item: straight away if untouched, asks first when it has votes or comments', async () => {
+  const { app } = await boot();
+  await click('Housewarming'); await tick();
+  const posts = () => [...root().querySelectorAll('.post')];
+  const busy = (p) => Number(p.querySelector('.score').textContent) !== 0 || Number(p.querySelector('.comment-toggle').textContent) > 0;
+  const rm = (p) => [...p.querySelectorAll('button')].find((b) => b.textContent === 'Remove').click();
+  const start = posts().length;
+  const title = (p) => p.querySelector('.post-title').textContent;
+  const target = title(posts().find((p) => busy(p)));
+  rm(posts().find((p) => title(p) === target)); await tick();
+  assert.ok(root().querySelector('[role="alertdialog"]'), 'a confirmation modal appears');
+  assert.equal(posts().length, start, 'nothing removed yet');
+  await click('Keep it');
+  assert.ok(!root().querySelector('[role="alertdialog"]'));
+  assert.equal(posts().length, start);
+  rm(posts().find((p) => title(p) === target)); await tick();
+  await click('Remove it'); await tick(120);
+  assert.equal(posts().length, start - 1, 'removed after confirming');
+  const quiet = posts().find((p) => !busy(p));
+  if (quiet) { rm(quiet); await tick(120); assert.ok(!root().querySelector('[role="alertdialog"]'), 'no modal when nothing is attached'); assert.equal(posts().length, start - 2); }
+  await app.destroy();
+});

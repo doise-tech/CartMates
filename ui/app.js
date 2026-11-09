@@ -27,7 +27,7 @@ export function createApp(root, store, opts = {}) {
     lists: [], history: [],
     active: null, // { listId, partyId } of the party you are in, if any
     listId: null, partyId: null, ctx: null, thread: [], online: [],
-    filter: 'all', sort: 'new', openComments: new Set(), splitMode: 'equal', splitWith: null,
+    filter: 'all', sort: 'new', openComments: new Set(), confirm: null, splitMode: 'equal', splitWith: null,
     slide: 0, msg: null, prefs: { saves: true, chat: true }, seen: null, unsub: null, confirmEnd: false,
   };
   let reloadTimer;
@@ -483,7 +483,9 @@ export function createApp(root, store, opts = {}) {
         h('span', { class: 'row' },
           voteButtons(i),
           h('button', { class: 'comment-toggle', type: 'button', 'aria-expanded': String(open), 'aria-label': `${n} ${n === 1 ? 'comment' : 'comments'}`, onClick: () => { if (open) S.openComments.delete(i.id); else S.openComments.add(i.id); render(); } }, bubbleIcon(), String(n))),
-        href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, 'Open in shop') : null),
+        h('span', { class: 'row' },
+          canRemove(i) ? h('button', { class: 'link tiny', type: 'button', 'aria-label': `Remove ${i.product.title} from the list`, onClick: () => askRemove(i) }, 'Remove') : null,
+          href ? h('a', { class: 'out', href, target: '_blank', rel: 'noopener noreferrer' }, 'Open in shop') : null)),
       open ? commentThread(i) : (n ? h('button', { class: 'plain last-comment', type: 'button', onClick: () => { S.openComments.add(i.id); render(); } }, h('b', null, nm(i.comments[n - 1].user_id)), ` ${i.comments[n - 1].body}`) : null));
   }
 
@@ -509,6 +511,29 @@ export function createApp(root, store, opts = {}) {
   }
 
   // ------------------------------------------------------------------ item
+
+  // Taking an item off the list. If friends have already voted or commented, ask first: it deletes their input too.
+  const canRemove = (i) => i.added_by === me() || isOwner();
+  function askRemove(i, after) {
+    const doIt = () => run(async () => { S.confirm = null; await store.removeItem(i.id); await loadCtx(); after?.(); render(); });
+    const votes = i.reactions.length;
+    const talk = (i.comments || []).length;
+    if (!votes && !talk) return doIt();
+    S.confirm = { item: i, votes, talk, doIt };
+    render();
+  }
+  function removeModal() {
+    const m = S.confirm;
+    if (!m) return null;
+    const bits = [m.votes ? `${m.votes} ${m.votes === 1 ? 'vote' : 'votes'}` : '', m.talk ? `${m.talk} ${m.talk === 1 ? 'comment' : 'comments'}` : ''].filter(Boolean).join(' and ');
+    const close = () => { S.confirm = null; render(); };
+    const box = h('div', { class: 'modal', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'rm-title', 'aria-describedby': 'rm-desc', onKeydown: (e) => { if (e.key === 'Escape') close(); } },
+      h('h2', { id: 'rm-title' }, 'Remove this item?'),
+      h('p', { id: 'rm-desc' }, `"${m.item.product.title}" has ${bits}. Removing it deletes them for everyone on the list, and it can't be undone.`),
+      h('div', { class: 'row' }, h('button', { class: 'btn grow', type: 'button', 'data-autofocus': '1', onClick: close }, 'Keep it'), h('button', { class: 'btn danger grow', type: 'button', onClick: m.doIt }, 'Remove it')));
+    queueMicrotask(() => box.querySelector('[data-autofocus]')?.focus?.({ preventScroll: true }));
+    return h('div', { class: 'modal-back', onClick: (e) => { if (e.target === e.currentTarget) close(); } }, box);
+  }
 
   // One dropdown for where an item is in the buying journey. Someone else's claim is theirs to change
   // (the list owner can still step in), so for the rest of us it is read-only.
@@ -579,7 +604,7 @@ export function createApp(root, store, opts = {}) {
         h('div', { class: 'chips' }, c.tags.map((t) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(i.tag_ids.includes(t.id)), onClick: () => run(async () => { await store.setItemTag(c.list.id, i.id, t.id, !i.tag_ids.includes(t.id)); await loadCtx(); render(); }) }, t.name))),
         h('form', { class: 'row', onSubmit: addTag }, field('tag', { placeholder: 'New tag', 'aria-label': 'New tag', maxlength: 40 }), h('button', { class: 'btn', type: 'submit' }, 'Add'))),
       h('div', { class: 'col' }, h('span', { class: 'label' }, `Comments (${(i.comments || []).length})`), commentThread(i)),
-      i.added_by === me() || isOwner() ? btn('Remove from list', () => run(async () => { await store.removeItem(i.id); await loadCtx(); back(); }), 'danger small') : null);
+      canRemove(i) ? btn('Remove from list', () => askRemove(i, back), 'danger small') : null);
   }
 
   // ------------------------------------------------------------------ parties
@@ -800,7 +825,7 @@ export function createApp(root, store, opts = {}) {
   function render() {
     const build = SCREENS[S.route.name];
     const keep = collect();
-    root.replaceChildren(...[header(), tabs(), banner(), build ? build() : h('div', { class: 'body' }, 'Loading…')].filter(Boolean));
+    root.replaceChildren(...[header(), tabs(), banner(), build ? build() : h('div', { class: 'body' }, 'Loading…'), removeModal()].filter(Boolean));
     restore(keep);
   }
 

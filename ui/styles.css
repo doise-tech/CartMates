@@ -296,3 +296,8 @@ html, body { margin: 0; }
 .cm .tipbtn:hover::after, .cm .tipbtn:focus-visible::after { opacity: 1; }
 
 .cm .status-select { width: auto; min-width: 150px; }
+
+/* Confirmation modal */
+.cm .modal-back { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(43, 35, 29, .45); }
+.cm .modal { display: flex; flex-direction: column; gap: 12px; width: min(340px, 100%); padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: 0 14px 44px rgba(43, 35, 29, .3); }
+.cm .modal .btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }

@@ -55,6 +55,7 @@ const DRAWER_CSS = `
 .toast { position: absolute; left: 16px; right: 16px; bottom: 18px; padding: 10px 14px; border-radius: 12px; background: var(--ink, #2b231d); color: #fff; font: 600 13px var(--body, system-ui, sans-serif); box-shadow: 0 8px 24px rgba(43,35,29,.3); z-index: 4; }
 .toast.err { background: #8c2f2f; }
 .toast[hidden] { display: none; }
+.drawer .modal-back { position: absolute; }
 .pop[hidden], .hang[hidden], .pill-save[hidden], .edge[hidden], .pill-live[hidden] { display: none; }
 .pop .cm { width: 100%; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
