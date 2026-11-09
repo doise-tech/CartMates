@@ -72,6 +72,13 @@ export const store = {
   async signUp(email, password, name) {
     const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name || undefined }, emailRedirectTo: chrome.runtime.getURL('confirmed/confirmed.html') } });
     if (error) throw new Error(error.message);
+    // Supabase answers a sign-up for an email that already has an account with no error and no email
+    // (so strangers can't probe who has one). The tell is a user with no identities.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      const e = new Error('That email already has a Cartmates account, so no new confirmation email is sent. Sign in instead, or use Forgot password.');
+      e.code = 'account_exists';
+      throw e;
+    }
     return data.session ? { user: await profileFor(data.user) } : { user: null, needsConfirm: true };
   },
   async resetPassword(email) {

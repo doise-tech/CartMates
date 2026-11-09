@@ -321,11 +321,12 @@ export function createApp(root, store, opts = {}) {
       signup ? h('span', { class: 'label' }, 'Your name') : null,
       signup ? field('name', { placeholder: 'What friends will see', 'aria-label': 'Your name', autocomplete: 'nickname', maxlength: 60 }) : null,
       h('span', { class: 'label' }, 'Email'),
-      field('email', { type: 'email', placeholder: 'name@company.com', 'aria-label': 'Email', autocomplete: 'email' }),
+      field('email', { type: 'email', placeholder: 'name@company.com', 'aria-label': 'Email', autocomplete: 'username', autocapitalize: 'off', spellcheck: 'false', required: true }),
       h('span', { class: 'label' }, signup ? 'Create a password' : 'Password'),
       passwordField('password', { placeholder: signup ? 'Create a password (6+ characters)' : 'Your password', 'aria-label': signup ? 'Create a password' : 'Password', autocomplete: signup ? 'new-password' : 'current-password' }),
       h('button', { class: 'btn primary', type: 'submit' }, signup ? 'Create account' : 'Sign in'),
       signup ? null : link('Forgot password?', () => go('forgot')),
+      signup && S.msg?.text?.includes('already has a Cartmates account') ? link('Go to sign in', () => go('signin', {}, 'replace')) : null,
       link(signup ? 'I already have an account' : 'Create an account', () => go(signup ? 'signin' : 'signup', {}, 'replace')));
   }
 

@@ -398,3 +398,25 @@ test('a new tab reopens on the screen you left (list, item), light and not home'
   assert.match(text(), /Talk it over/, `expected to land on the item, got: ${text().slice(0, 120)}`);
   assert.equal(second.state().route.name, 'item');
 });
+
+test('sign-up for an email that already has an account says so and offers sign in', async () => {
+  const store = createMockStore({ signedIn: false });
+  store.signUp = async () => { throw Object.assign(new Error('That email already has a Cartmates account, so no new confirmation email is sent. Sign in instead, or use Forgot password.'), { code: 'account_exists' }); };
+  const { app } = await boot({ store: { signedIn: false } });
+  app.state().user = null;
+  const s2 = createMockStore({ signedIn: false });
+  s2.signUp = store.signUp;
+  root().replaceChildren();
+  const a2 = createApp(root(), s2, {});
+  apps.push(a2);
+  await tick(60);
+  a2.go('signup', {}, 'root');
+  await tick(20);
+  type('email', 'a@b.co'); type('password', 'pass1234'); type('name', 'A');
+  await submit();
+  assert.match(text(), /already has a Cartmates account/);
+  await click('Go to sign in');
+  assert.match(text(), /Welcome back/);
+  // the email box is a login name so Chrome offers saved passwords, not address-book entries
+  assert.equal(root().querySelector('[name="email"]').getAttribute('autocomplete'), 'username');
+});
