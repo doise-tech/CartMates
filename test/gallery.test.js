@@ -74,3 +74,27 @@ test('save card: pick another colour, picture follows, and it is saved with all 
   assert.equal(saved.options[0].values.length, 2);
   assert.equal(saved.variant, 'Colour: Black');
 });
+
+const az = (body, path = '/dp/B09TPMQ4CQ') => {
+  const dom = new JSDOM(`<html><head><title>Shoe : Amazon.in</title></head><body>${body}</body></html>`, { url: `https://www.amazon.in${path}` });
+  return extractProduct(dom.window.document, dom.window.location);
+};
+
+test('amazon price: new desktop layout, mobile page, deal and split whole/fraction markup', () => {
+  // price to pay beside a struck-through MRP and a carousel of other products
+  assert.equal(az(`<span id="productTitle">Shoe</span><div id="corePriceDisplay_desktop_feature_div"><span class="a-price a-text-price"><span class="a-offscreen">₹2,999.00</span></span><span class="a-price priceToPay"><span class="a-offscreen">₹1,479.00</span></span></div><div class="a-carousel"><span class="a-price"><span class="a-offscreen">₹99.00</span></span></div>`).price, 1479);
+  // mobile page: no #productTitle, price only in #price
+  assert.equal(az('<h1 id="title">Shoe</h1><span id="price">₹ 1,299</span>', '/gp/aw/d/B09TPMQ4CQ').price, 1299);
+  // whole + fraction only, no hidden full text
+  const split = az('<span id="productTitle">Shoe</span><div id="centerCol"><span class="a-price"><span class="a-price-symbol">₹</span><span class="a-price-whole">1,979<span class="a-price-decimal">.</span></span><span class="a-price-fraction">00</span></span></div>');
+  assert.equal(split.price, 1979);
+  assert.equal(split.currency, 'INR');
+  // deal price block
+  assert.equal(az('<span id="productTitle">Shoe</span><span id="priceblock_dealprice">₹ 849.50</span>').price, 849.5);
+  // not for sale: no price, not a made-up one
+  assert.equal(az('<span id="productTitle">Shoe</span><div id="availability">Currently unavailable.</div>').price, null);
+});
+
+test('amazon price: a price range reads as the first price', () => {
+  assert.equal(az('<span id="productTitle">Shoe</span><span id="price">₹999.00 - ₹1,499.00</span>').price, 999);
+});

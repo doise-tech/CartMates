@@ -294,3 +294,5 @@ html, body { margin: 0; }
 .cm .tipbtn:hover, .cm .tipbtn.on { background: var(--accent-soft); color: var(--accent); }
 .cm .tipbtn::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; white-space: nowrap; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .12s ease; z-index: 5; }
 .cm .tipbtn:hover::after, .cm .tipbtn:focus-visible::after { opacity: 1; }
+
+.cm .status-select { width: auto; min-width: 150px; }

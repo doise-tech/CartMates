@@ -510,13 +510,18 @@ export function createApp(root, store, opts = {}) {
 
   // ------------------------------------------------------------------ item
 
+  // One dropdown for where an item is in the buying journey. Someone else's claim is theirs to change
+  // (the list owner can still step in), so for the rest of us it is read-only.
   function itemActions(i) {
     const set = (status) => run(async () => { await store.setItemStatus(i.id, status); await loadCtx(); render(); });
-    const mine = i.claimed_by === me();
-    if (i.status === 'saved') return [btn('Add to cart', () => set('in_cart'), 'small primary')];
-    if (i.status === 'in_cart') return [btn("I'll buy this", () => set('claimed'), 'small primary'), btn('Take out of cart', () => set('saved'), 'small')];
-    if (i.status === 'claimed') return mine ? [btn('Mark as bought', () => set('bought'), 'small primary'), btn('Release', () => set('in_cart'), 'small')] : [h('span', { class: 'sub' }, `${nm(i.claimed_by)} will buy this`)];
-    return mine ? [h('span', { class: 'sub' }, 'You bought this'), btn('Undo', () => set('claimed'), 'small')] : [h('span', { class: 'sub' }, `Bought by ${nm(i.claimed_by)}`)];
+    const lockedBy = i.claimed_by && i.claimed_by !== me() && !isOwner() ? i.claimed_by : null;
+    const steps = [['saved', 'Saved'], ['in_cart', 'Added to cart'], ['claimed', "I'll buy this"], ['bought', 'Bought']];
+    const dd = h('select', { class: 'field status-select', name: `status:${i.id}`, 'aria-label': `Buying status of ${i.product.title}`, disabled: !!lockedBy,
+      onChange: (e) => { if (e.target.value !== i.status) set(e.target.value); } },
+      steps.map(([v, label]) => h('option', { value: v, selected: v === i.status }, label)));
+    const note = i.status === 'claimed' ? (i.claimed_by === me() ? 'You will buy this' : `${nm(i.claimed_by)} will buy this`)
+      : i.status === 'bought' ? (i.claimed_by === me() ? 'You bought this' : `Bought by ${nm(i.claimed_by)}`) : null;
+    return [dd, note ? h('span', { class: 'sub' }, note) : null].filter(Boolean);
   }
 
   function itemScreen() {

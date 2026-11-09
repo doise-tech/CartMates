@@ -93,9 +93,12 @@ test('item: like, tag, discuss, claim, remove', async () => {
   type('text', 'Is this the right size?');
   await click('Post');
   assert.match(text(), /right size/);
-  await click("I'll buy this");
-  assert.match(text(), /Mark as bought/);
-  await click('Mark as bought');
+  const pick = async (v) => { const d = root().querySelector('.status-select'); d.value = v; d.dispatchEvent(new window.Event('change', { bubbles: true })); await tick(); };
+  await pick('in_cart');
+  assert.equal(root().querySelector('.status-select').value, 'in_cart');
+  await pick('claimed');
+  assert.match(text(), /You will buy this/);
+  await pick('bought');
   assert.match(text(), /You bought this/);
   await app.destroy();
   void store;
