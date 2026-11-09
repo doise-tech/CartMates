@@ -21,6 +21,7 @@ function start() {
     drawer.showTab(isLive || isProduct);
     drawer.showLive(false);
     drawer.showSave(false);
+    drawer.showHang(isProduct);
   };
   paint();
   chrome.runtime.onMessage.addListener((msg) => {

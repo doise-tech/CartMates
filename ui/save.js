@@ -6,7 +6,7 @@ import { shareBlock } from './share.js';
 // The Pinterest-style card: you are on a product page, pick a list (or make one right here),
 // and it is saved. Then you can share that list. Works any time, with or without a live party.
 export function createSaveCard({ store, getProduct, installUrl, onClose, onView }) {
-  const st = { view: 'pick', preset: null, user: null, product: null, lists: [], saved: new Set(), picked: null, edit: false, busy: false, msg: null, err: false };
+  const st = { view: 'pick', preset: null, user: null, product: null, lists: [], saved: new Set(), picked: null, fixed: false, edit: false, busy: false, msg: null, err: false };
   const el = h('div', { class: 'cm savecard', role: 'dialog', 'aria-label': 'Save to a list' });
   let nameBox = null;
 
@@ -25,6 +25,7 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
     st.view = 'pick'; st.msg = null; st.picked = null; st.edit = false; st.preset = null;
     st.user = await store.getUser();
     st.product = getProduct();
+    st.fixed = !!st.product?.variant; // already chosen on the shop page: save it as it is
     if (st.user) {
       st.lists = (await store.loadHome()).lists;
       st.saved = new Set(st.product ? await store.savedIn(st.product.url).catch(() => []) : []);
@@ -118,7 +119,7 @@ export function createSaveCard({ store, getProduct, installUrl, onClose, onView 
         p.price != null ? h('span', { class: 'price' }, money(p.price, p.currency || st.user.preferred_currency || 'INR')) : h('span', { class: 'sub' }, 'No price found'))),
       p.variant ? h('span', { class: 'tags' }, p.variant.split(' · ').map((v) => h('span', { class: 'tag' }, v))) : null,
       gallery(p),
-      optionPickers(p),
+      st.fixed ? null : optionPickers(p),
       link(st.edit ? 'Done' : 'Not right? Edit details', () => { if (st.edit) applyEdit(); else { st.edit = true; draw(); } }));
     if (!st.edit) return shown;
     return h('div', { class: 'col' },

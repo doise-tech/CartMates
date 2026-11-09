@@ -51,7 +51,17 @@ test('save card: pick another colour, picture follows, and it is saved with all 
     options: [{ name: 'Colour', values: [{ label: 'White', image: 'https://x/I/w._SS64_.jpg', selected: true }, { label: 'Black', image: 'https://x/I/k._SS64_.jpg', selected: false }] }] };
   const store = { getUser: async () => ({ id: 'u', preferred_currency: 'INR' }), loadHome: async () => ({ lists: [{ id: 'l1', name: 'Gifts', role: 'owner' }] }), savedIn: async () => [],
     getActive: async () => null, saveItem: async (l, p, prod) => { saved = prod; } };
-  const card = createSaveCard({ store, getProduct: () => product });
+  // A colour already chosen on the page is saved as is: no pickers on the card, options kept for the item screen.
+  const chosen = createSaveCard({ store, getProduct: () => product });
+  await chosen.open();
+  assert.equal(chosen.el.querySelectorAll('.opt').length, 0);
+  [...chosen.el.querySelectorAll('button.rowcard')][0].click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(saved.variant, 'Colour: White');
+  assert.equal(saved.options[0].values.length, 2);
+  // Nothing chosen yet: the card offers the pickers.
+  const open = { ...product, variant: null };
+  const card = createSaveCard({ store, getProduct: () => open });
   await card.open();
   const opts = [...card.el.querySelectorAll('.opt')];
   assert.equal(opts.length, 2);

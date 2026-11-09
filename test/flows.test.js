@@ -428,8 +428,10 @@ test('list is a feed: save-this-page card, vote, comment inline, sort', async ()
   const { app } = await boot({ app: { onSavePage: (id) => { saved = id; } } });
   await click('Housewarming'); await tick();
   assert.ok(root().querySelector('.feed .post'), 'items show as posts');
-  await click('Save');
-  assert.ok(saved, 'save-this-page asks the drawer to save into this list');
+  assert.ok(root().querySelector('.top [data-tip="Share list (3 people)"], .top .tipbtn'), 'party and share are icons in the header');
+  assert.equal(root().querySelectorAll('.top .tipbtn').length, 2);
+  assert.ok(!root().querySelector('.card.row'), 'no separate party/share/save cards');
+  void saved;
   const post = root().querySelector('.post');
   const before = post.querySelector('.score').textContent;
   post.querySelector('.vote.up').click(); await tick();

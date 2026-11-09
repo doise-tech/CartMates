@@ -1,4 +1,4 @@
-import { h } from '../lib/dom.js';
+import { h, saveIcon } from '../lib/dom.js';
 import { createApp } from './app.js';
 import { createSaveCard } from './save.js';
 
@@ -43,7 +43,19 @@ const DRAWER_CSS = `
 .pill-live { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px 9px 14px; border: 0; border-radius: 999px 0 0 999px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); font: 600 13px var(--body, system-ui, sans-serif); cursor: pointer; box-shadow: -3px 6px 18px rgba(43,35,29,.26); }
 .pill-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; opacity: .9; }
 .pill-live:focus-visible { outline: 2px solid var(--accent, #93643a); outline-offset: 2px; }
-.pop[hidden], .pill-save[hidden], .edge[hidden], .pill-live[hidden] { display: none; }
+.hang { position: absolute; left: -50px; top: 74px; width: 50px; height: 50px; display: grid; place-items: center; border: 0; border-radius: 16px 0 0 16px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); cursor: pointer; box-shadow: -4px 6px 16px rgba(43,35,29,.28); }
+.hang:hover { filter: brightness(1.08); }
+.hang:focus-visible { outline: 2px solid var(--ink, #2b231d); outline-offset: 2px; }
+.drawer.full .hang { display: none; }
+[data-tip] { position: relative; }
+.hang[data-tip] { position: absolute; }
+[data-tip]::after { content: attr(data-tip); position: absolute; white-space: nowrap; padding: 5px 9px; border-radius: 8px; background: var(--ink, #2b231d); color: #fff; font: 12px var(--body, system-ui, sans-serif); opacity: 0; pointer-events: none; transition: opacity .12s ease; z-index: 3; }
+.hang[data-tip]::after { right: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+[data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 18px; padding: 10px 14px; border-radius: 12px; background: var(--ink, #2b231d); color: #fff; font: 600 13px var(--body, system-ui, sans-serif); box-shadow: 0 8px 24px rgba(43,35,29,.3); z-index: 4; }
+.toast.err { background: #8c2f2f; }
+.toast[hidden] { display: none; }
+.pop[hidden], .hang[hidden], .pill-save[hidden], .edge[hidden], .pill-live[hidden] { display: none; }
 .pop .cm { width: 100%; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
 `;
@@ -61,9 +73,11 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   const appRoot = h('div', { class: 'cm' });
   const expandBtn = h('button', { type: 'button', 'aria-pressed': 'false', onClick: () => setFull(!full) }, 'Full view');
   const closeBtn = h('button', { type: 'button', 'aria-label': 'Close Cartmates', onClick: () => close() }, 'Close');
+  const hang = h('button', { class: 'hang', type: 'button', hidden: true, 'aria-label': 'Save this product', 'data-tip': 'Save this product', onClick: () => hangSave() }, saveIcon(22));
+  const toastEl = h('div', { class: 'toast', role: 'status', hidden: true });
   const drawer = h('aside', { class: 'drawer', 'aria-label': 'Cartmates' },
     h('div', { class: 'dhead' }, h('b', null, 'Cartmates'), h('span', { class: 'acts' }, expandBtn, closeBtn)),
-    appRoot);
+    appRoot, hang, toastEl);
 
   const card = createSaveCard({
     store, getProduct, installUrl,
@@ -78,6 +92,39 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   const root = h('div', { class: `root ${position === 'absolute' ? 'abs' : ''}`.trim() }, h('div', { class: 'dock' }, liveBtn, saveBtn, tab), drawer, pop);
   shadow.append(root);
   parent.append(host);
+
+  let toastTimer = null;
+  function toast(text, err = false) {
+    toastEl.textContent = text;
+    toastEl.classList.toggle('err', err);
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 3000);
+  }
+
+  // The tab hanging off the drawer saves THIS product. On a list it goes straight in, exactly as the
+  // page shows it (the colour, size and style already picked); anywhere else it asks which list.
+  async function hangSave() {
+    const S = ensureApp().state();
+    const listId = S.listId;
+    if (!listId || !['list', 'item'].includes(S.route?.name)) return openSave();
+    const product = getProduct();
+    if (!product) return toast('Could not read this page.', true);
+    const name = S.ctx?.list?.name || 'your list';
+    try {
+      const already = await store.savedIn(product.url).catch(() => []);
+      if (already.includes(listId)) return toast(`Already in ${name}`);
+      const active = await store.getActive();
+      const partyId = active?.listId === listId ? active.partyId : null;
+      try { await store.saveItem(listId, partyId, product); } catch (e) {
+        if (!partyId) throw e;
+        await store.saveItem(listId, null, product); // that party ended; the list still takes it
+      }
+      toast(`Saved to ${name}`);
+      await ensureApp().openList(listId, S.partyId);
+      ensureApp().render();
+    } catch (e) { toast(e?.message || 'Could not save.', true); }
+  }
 
   function ensureApp() {
     if (!app) app = createApp(appRoot, store, { ...appOpts, installUrl, onSavePage: (listId) => openSave(listId) });
@@ -137,6 +184,8 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
     app: ensureApp,
     saveCard: card,
     showSave: (on) => { saveBtn.hidden = !on; },
+    showHang: (on) => { hang.hidden = !on; },
+    hangSave,
     showTab: (on) => { const was = !tab.hidden; tab.hidden = !on; if (was && !on) { close(); closeSave(); } },
     showLive: (on) => { liveBtn.hidden = !on; },
     setTheme: (mode) => { if (mode) host.setAttribute('data-theme', mode); else host.removeAttribute('data-theme'); },

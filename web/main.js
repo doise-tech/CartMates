@@ -70,7 +70,7 @@ const drawer = mountDrawer({
   },
 });
 const app = drawer.app();
-drawer.showSave(true); // this pretend shop page is always a product page
+drawer.showSave(true); drawer.showHang(true); // this pretend shop page is always a product page
 const inDrawer = (sel) => drawer.shadow.querySelector(sel);
 const pressIn = async (scope, label) => {
   const b = [...scope.querySelectorAll('button')].find((x) => x.textContent.trim().startsWith(label) && !x.disabled);

@@ -287,3 +287,10 @@ html, body { margin: 0; }
 .cm .link.tiny { font-size: 11px; }
 .cm .out { font-size: 12px; color: var(--accent); }
 .cm .row.wrap { flex-wrap: wrap; }
+
+/* List header icons with hover names */
+.cm .top .row.grow0 { min-width: 0; flex: 1; }
+.cm .tipbtn { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%; position: relative; color: var(--ink-2); }
+.cm .tipbtn:hover, .cm .tipbtn.on { background: var(--accent-soft); color: var(--accent); }
+.cm .tipbtn::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; white-space: nowrap; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .12s ease; z-index: 5; }
+.cm .tipbtn:hover::after, .cm .tipbtn:focus-visible::after { opacity: 1; }

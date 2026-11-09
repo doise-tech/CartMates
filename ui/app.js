@@ -1,5 +1,5 @@
 import { shareBlock } from './share.js';
-import { h, safeUrl, avatar, ago, thumb, heart, arrow, bubbleIcon } from '../lib/dom.js';
+import { h, safeUrl, avatar, ago, thumb, heart, arrow, bubbleIcon, partyIcon, shareIcon } from '../lib/dom.js';
 import { money, total, lineMinor, fromMinor, splitEqual, splitByClaim, settleUp } from '../lib/split.js';
 
 // Every popup screen lives here. The screens talk only to `store`, so the same code runs
@@ -271,6 +271,17 @@ export function createApp(root, store, opts = {}) {
           h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Settings', onClick: () => go('settings') }, 'Settings')));
     }
     const title = r === 'list' ? listName() : r === 'item' ? 'Item' : TITLES[r] || '';
+    if (r === 'list' && S.ctx) {
+      const c = S.ctx;
+      const live = inParty() ? 'Open party' : c.liveParty ? 'Join the live party' : 'Start a party';
+      const party = () => { if (inParty()) tab('party'); else if (c.liveParty) run(async () => { await enterParty(c.liveParty); go('party', {}, 'root'); }); else go('startParty'); };
+      const tip = (label, icon, onClick, extra = '') => h('button', { class: `iconbtn tipbtn ${extra}`.trim(), type: 'button', 'aria-label': label, 'data-tip': label, onClick }, icon);
+      return h('div', { class: 'top' },
+        h('span', { class: 'row grow0' }, h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '\u2190'), h('span', { class: 'title' }, title)),
+        h('span', { class: 'row' },
+          tip(live, partyIcon(), party, inParty() || c.liveParty ? 'on' : ''),
+          tip(`Share list (${c.members.length} ${c.members.length === 1 ? 'person' : 'people'})`, shareIcon(), () => go('share'))));
+    }
     return h('div', { class: 'top' }, h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '←'), h('span', { class: 'title' }, title));
   }
 
@@ -482,21 +493,13 @@ export function createApp(root, store, opts = {}) {
     const tagName = (id) => c.tags.find((t) => t.id === id)?.name;
     const shown = c.items.filter((i) => S.filter === 'all' || (S.filter === 'cart' ? IN_CART.includes(i.status) : i.tag_ids.includes(S.filter)));
     const feed = S.sort === 'top' ? shown.slice().sort((a, b) => scoreOf(b) - scoreOf(a) || Date.parse(b.created_at) - Date.parse(a.created_at)) : shown;
-    const partyCard = inParty()
-      ? h('div', { class: 'card live col' }, h('div', { class: 'row sp' }, h('b', null, c.party.label || 'Live party'), h('span', { class: 'pill live' }, `${onlineIds().length || 1} here`)), btn('Open party', () => tab('party'), 'small primary'))
-      : c.liveParty
-        ? h('div', { class: 'card live col' }, h('div', { class: 'row sp' }, h('b', null, c.liveParty.label || 'A party is live'), h('span', { class: 'pill live' }, 'live')), btn('Join in', () => run(async () => { await enterParty(c.liveParty); go('party', {}, 'root'); }), 'small primary'))
-        : h('div', { class: 'card row sp' }, h('span', { class: 'col tight' }, h('b', null, 'Shop together'), h('span', { class: 'sub' }, 'Start a party and browse with friends.')), btn('Start a party', () => go('startParty'), 'small primary'));
     return h('div', { class: 'body' },
-      partyCard,
-      h('div', { class: 'card row sp' }, h('span', { class: 'col tight grow0' }, h('b', null, `${c.members.length} ${c.members.length === 1 ? 'person' : 'people'} on this list`), h('span', { class: 'sub' }, 'Invite friends with a code.')), btn('Share list', () => go('share'), 'small primary')),
-      opts.onSavePage ? h('div', { class: 'card row sp' }, h('span', { class: 'col tight grow0' }, h('b', null, 'Save this page'), h('span', { class: 'sub clip' }, `Add what you are looking at to ${c.list.name}.`)), btn('Save', () => opts.onSavePage(c.list.id), 'small primary')) : null,
       h('div', { class: 'row sp wrap' },
         h('div', { class: 'chips' }, [['all', 'All'], ...c.tags.map((t) => [t.id, t.name]), ['cart', 'In cart']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.filter === key), onClick: () => { S.filter = key; render(); } }, label))),
         h('div', { class: 'chips', role: 'group', 'aria-label': 'Sort' }, [['new', 'Newest'], ['top', 'Top voted']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.sort === key), onClick: () => { S.sort = key; render(); } }, label)))),
       shown.length
         ? h('div', { class: 'feed' }, feed.map(feedPost))
-        : h('div', { class: 'empty' }, h('h3', null, c.items.length ? 'Nothing here' : 'Nothing saved yet'), h('p', null, c.items.length ? 'Try a different filter.' : 'Open a shop and press Save this page above. Everyone on the list can vote and comment on what you add.')),
+        : h('div', { class: 'empty' }, h('h3', null, c.items.length ? 'Nothing here' : 'Nothing saved yet'), h('p', null, c.items.length ? 'Try a different filter.' : 'Open a shop and press the Save tab hanging off the drawer. Everyone on the list can vote and comment on what you add.')),
       h('div', { class: 'col' },
         h('span', { class: 'label' }, `People (${c.members.length})`),
         h('div', { class: 'card col' }, c.members.map((m) => h('div', { class: 'share' },
