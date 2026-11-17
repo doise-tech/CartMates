@@ -44,14 +44,14 @@ const DRAWER_CSS = `
 .pill-live { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px 9px 14px; border: 0; border-radius: 999px 0 0 999px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); font: 600 13px var(--body, system-ui, sans-serif); cursor: pointer; box-shadow: -3px 6px 18px rgba(43,35,29,.26); }
 .pill-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; opacity: .9; }
 .pill-live:focus-visible { outline: 2px solid var(--accent, #93643a); outline-offset: 2px; }
-.hang { position: absolute; left: -50px; top: 74px; width: 50px; height: 50px; display: grid; place-items: center; border: 0; border-radius: 16px 0 0 16px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); cursor: pointer; box-shadow: -4px 6px 16px rgba(43,35,29,.28); }
+.hang { position: absolute; left: -58px; top: 74px; width: 58px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 0 18px; border: 0; border-radius: 18px 0 0 18px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); cursor: pointer; box-shadow: -6px 8px 22px rgba(43,35,29,.34), inset 0 0 0 1.5px rgba(255,253,249,.35); }
+.hang-label { writing-mode: vertical-rl; font: 700 14px var(--display, Georgia, serif); letter-spacing: 0.06em; white-space: nowrap; }
+.hang svg { display: block; flex: none; }
 .hang:hover { filter: brightness(1.08); }
 .hang:focus-visible { outline: 2px solid var(--ink, #2b231d); outline-offset: 2px; }
 .drawer.full .hang { display: none; }
 [data-tip] { position: relative; }
-.hang[data-tip] { position: absolute; }
 [data-tip]::after { content: attr(data-tip); position: absolute; white-space: nowrap; padding: 5px 9px; border-radius: 8px; background: var(--ink, #2b231d); color: #fff; font: 12px var(--body, system-ui, sans-serif); opacity: 0; pointer-events: none; transition: opacity .12s ease; z-index: 3; }
-.hang[data-tip]::after { right: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
 [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
 .toast { position: absolute; left: 16px; right: 16px; bottom: 18px; padding: 10px 14px; border-radius: 12px; background: var(--ink, #2b231d); color: #fff; font: 600 13px var(--body, system-ui, sans-serif); box-shadow: 0 8px 24px rgba(43,35,29,.3); z-index: 4; }
 .toast.err { background: #8c2f2f; }
@@ -75,7 +75,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   const appRoot = h('div', { class: 'cm' });
   const expandBtn = h('button', { type: 'button', 'aria-pressed': 'false', onClick: () => setFull(!full) }, 'Full view');
   const closeBtn = h('button', { type: 'button', 'aria-label': 'Close Cartmates', onClick: () => close() }, 'Close');
-  const hang = h('button', { class: 'hang', type: 'button', hidden: true, 'aria-label': 'Save this product', 'data-tip': 'Save this product', onClick: () => hangSave() }, saveIcon(22));
+  const hang = h('button', { class: 'hang', type: 'button', hidden: true, 'aria-label': 'Save this product', title: 'Save this product', onClick: () => hangSave() }, logoMark(26), h('span', { class: 'hang-label' }, 'Save this product'));
   const toastEl = h('div', { class: 'toast', role: 'status', hidden: true });
   const drawer = h('aside', { class: 'drawer', 'aria-label': 'Cartmates' },
     h('div', { class: 'dhead' }, h('b', { class: 'brand' }, logoMark(22), 'Cartmates'), h('span', { class: 'acts' }, expandBtn, closeBtn)),
