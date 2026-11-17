@@ -21,7 +21,7 @@ function start() {
     drawer.showTab(isLive || isProduct);
     drawer.showLive(false);
     drawer.showSave(false);
-    drawer.showHang(isProduct);
+    drawer.showHang(true); // whenever the drawer is open, on any page
   };
   paint();
   chrome.runtime.onMessage.addListener((msg) => {
