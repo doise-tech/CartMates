@@ -26,6 +26,7 @@ if (!url || !key) {
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist/popup', { recursive: true });
 await cp('manifest.json', 'dist/manifest.json');
+await cp('icons', 'dist/icons', { recursive: true, filter: (p) => !p.endsWith('.svg') });
 await cp('popup/popup.html', 'dist/popup/popup.html');
 await cp('ui/styles.css', 'dist/popup/popup.css');
 await cp('confirmed', 'dist/confirmed', { recursive: true });

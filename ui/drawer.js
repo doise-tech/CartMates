@@ -1,4 +1,4 @@
-import { h, saveIcon } from '../lib/dom.js';
+import { h, saveIcon, logoMark } from '../lib/dom.js';
 import { createApp } from './app.js';
 import { createSaveCard } from './save.js';
 
@@ -23,7 +23,7 @@ const DRAWER_CSS = `
 .dock { position: absolute; right: 0; top: 38%; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .root.open .dock, .root.saving .dock { display: none; }
 .edge { display: inline-flex; align-items: center; gap: 10px; writing-mode: vertical-rl; padding: 16px 9px 16px 8px; border: 0; border-radius: 14px 0 0 14px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); font: 600 14px var(--display, Georgia, serif); letter-spacing: 0.08em; cursor: pointer; box-shadow: -3px 6px 18px rgba(43,35,29,.26); transition: padding .15s ease; }
-.edge i { width: 14px; height: 14px; background: currentColor; display: inline-block; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+.edge svg { display: block; }
 .edge:hover { padding-right: 14px; }
 @media (prefers-reduced-motion: reduce) { .edge { transition: none; } }
 .pill-save { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px 9px 16px; border: 1px solid var(--line, #e9ddcf); border-right: 0; border-radius: 999px 0 0 999px; background: var(--surface, #fffdf9); color: var(--ink, #2b231d); font: 600 13px var(--body, system-ui, sans-serif); cursor: pointer; box-shadow: -3px 6px 18px rgba(43,35,29,.2); }
@@ -32,6 +32,7 @@ const DRAWER_CSS = `
 .root.open .drawer { transform: none; visibility: visible; transition: transform .22s ease, width .22s ease; }
 .drawer.full { width: 100%; border-left: 0; }
 .dhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 6px 14px; background: var(--surface, #fff); border-bottom: 1px solid var(--line, #e9ddcf); }
+.dhead b.brand { display: inline-flex; align-items: center; gap: 8px; color: var(--accent, #93643a); }
 .dhead b { font: 600 16px var(--display, Georgia, serif); color: var(--ink, #2b231d); letter-spacing: 0.01em; }
 .dhead .acts { display: flex; gap: 4px; }
 .dhead button, .pop .cm .iconbtn { cursor: pointer; }
@@ -77,7 +78,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   const hang = h('button', { class: 'hang', type: 'button', hidden: true, 'aria-label': 'Save this product', 'data-tip': 'Save this product', onClick: () => hangSave() }, saveIcon(22));
   const toastEl = h('div', { class: 'toast', role: 'status', hidden: true });
   const drawer = h('aside', { class: 'drawer', 'aria-label': 'Cartmates' },
-    h('div', { class: 'dhead' }, h('b', null, 'Cartmates'), h('span', { class: 'acts' }, expandBtn, closeBtn)),
+    h('div', { class: 'dhead' }, h('b', { class: 'brand' }, logoMark(22), 'Cartmates'), h('span', { class: 'acts' }, expandBtn, closeBtn)),
     appRoot, hang, toastEl);
 
   const card = createSaveCard({
@@ -89,7 +90,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
 
   const saveBtn = h('button', { class: 'pill-save', type: 'button', hidden: true, 'aria-label': 'Save this product to a Cartmates list', onClick: () => openSave() }, 'Save');
   const liveBtn = h('button', { class: 'pill-live', type: 'button', hidden: true, 'aria-label': 'Go live: start a shopping party', onClick: () => goLive() }, h('i'), 'Go live');
-  const tab = h('button', { class: 'edge', type: 'button', 'aria-label': 'Open Cartmates', onClick: () => open() }, h('i'), 'Cartmates');
+  const tab = h('button', { class: 'edge', type: 'button', 'aria-label': 'Open Cartmates', onClick: () => open() }, logoMark(20), 'Cartmates');
   const root = h('div', { class: `root ${position === 'absolute' ? 'abs' : ''}`.trim() }, h('div', { class: 'dock' }, liveBtn, saveBtn, tab), drawer, pop);
   shadow.append(root);
   parent.append(host);
