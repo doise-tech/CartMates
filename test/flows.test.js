@@ -511,3 +511,20 @@ test('rejoin shows only after you leave; ending a party drops it from the live l
   assert.equal(home.lists.find((l) => l.id === 'l1').live, null, 'ended parties are not live any more');
   await app.destroy();
 });
+
+test('start a party: the list dropdown can make a new list for the party', async () => {
+  const { app, store } = await boot();
+  app.go('startParty', {}, 'root'); await tick();
+  const dd = root().querySelector('select[name="list"]');
+  assert.ok([...dd.options].some((o) => /New list/.test(o.textContent)), 'dropdown offers a new list');
+  assert.equal(root().querySelector('input[name="newListName"]').closest('[hidden]') !== null, true, 'name box hidden until chosen');
+  dd.value = '__new'; dd.dispatchEvent(new window.Event('change', { bubbles: true })); await tick();
+  assert.equal(root().querySelector('input[name="newListName"]').closest('[hidden]'), null, 'name box appears');
+  root().querySelector('input[name="newListName"]').value = 'Goa shop';
+  root().querySelector('input[name="label"]').value = 'Beach day';
+  root().querySelector('form').requestSubmit(); await tick(200);
+  const home = await store.loadHome();
+  const made = home.lists.find((l) => l.name === 'Goa shop');
+  assert.ok(made && made.live, 'new list exists with a live party');
+  await app.destroy();
+});

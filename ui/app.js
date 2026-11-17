@@ -621,23 +621,36 @@ export function createApp(root, store, opts = {}) {
 
   function startParty() {
     const pick = S.lists.filter((l) => !l.live);
-    if (!pick.length) return h('div', { class: 'body' }, h('div', { class: 'empty' }, h('h3', null, S.lists.length ? 'Every list already has a party' : 'You need a list first'), h('p', null, S.lists.length ? 'Join the live party from your lists.' : 'Parties shop for a list.'), btn(S.lists.length ? 'Back to lists' : 'New list', () => (S.lists.length ? go('home', {}, 'root') : go('newList', {}, 'replace')), 'primary')));
+    const NEW = '__new';
     const start = (e) => {
       e.preventDefault();
       const f = e.target.elements;
       run(async () => {
-        const list = S.lists.find((l) => l.id === f.list.value);
+        let list = S.lists.find((l) => l.id === f.list.value);
+        if (f.list.value === NEW) {
+          const name = f.newListName.value.trim();
+          if (!name) throw new Error('Give the new list a name.');
+          list = await store.createList(name);
+        }
         const party = await store.startParty(list.id, f.label.value.trim() || `${list.name} party`);
         await setActive({ listId: list.id, partyId: party.id });
-        await openList(list.id, party.id);
         await refreshHome();
+        await openList(list.id, party.id);
         go('invite', {}, 'replace');
       });
     };
+    const first = pick.find((l) => l.id === S.listId)?.id || pick[0]?.id || NEW;
+    const newRow = h('div', { class: 'col', hidden: first !== NEW },
+      h('span', { class: 'label' }, 'New list name'),
+      field('newListName', { placeholder: 'e.g. Goa trip, Kitchen, Gifts', 'aria-label': 'New list name', maxlength: 80, autocomplete: 'off' }));
+    const dd = select('list', [...pick.map((l) => [l.id, l.name]), [NEW, '+ New list for this party']], first, {
+      'aria-label': 'List',
+      onChange: (e) => { newRow.hidden = e.target.value !== NEW; if (!newRow.hidden) newRow.querySelector('input')?.focus(); },
+    });
     return h('form', { class: 'body', onSubmit: start },
-      h('p', { class: 'sub' }, 'A party is a live session. Friends who join can chat and see what you save.'),
+      h('p', { class: 'sub' }, 'A party is a live session. Friends who join can chat and see what you save. When it ends, everything stays in the list.'),
       h('span', { class: 'label' }, 'Shopping for'),
-      select('list', pick.map((l) => [l.id, l.name]), pick.find((l) => l.id === S.listId)?.id || pick[0].id, { 'aria-label': 'List' }),
+      dd, newRow,
       h('span', { class: 'label' }, 'Party name'),
       field('label', { placeholder: 'Saturday shop', 'aria-label': 'Party name', maxlength: 80 }),
       h('button', { class: 'btn primary', type: 'submit' }, 'Start party'));
