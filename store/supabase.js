@@ -100,11 +100,14 @@ export const store = {
   // ---- lists
   async loadHome() {
     const user = await needMe();
-    const [mine, live] = await Promise.all([
+    const [mine, live, seats] = await Promise.all([
       supabase.from('list_members').select('role, lists(id, name, owner_id, created_at, invite_code)').eq('user_id', user.id),
       supabase.from('parties').select('id, list_id, label, invite_code, host_id, started_at').eq('status', 'live'),
+      supabase.from('party_members').select('party_id, left_at').eq('user_id', user.id),
     ]);
-    const liveBy = new Map(ok(live).map((p) => [p.list_id, p]));
+    // Where I stand in each live party: in it, left it (so I can rejoin), or never joined.
+    const seat = new Map(ok(seats).map((r) => [r.party_id, r.left_at ? 'left' : 'in']));
+    const liveBy = new Map(ok(live).map((p) => [p.list_id, { ...p, me: seat.get(p.id) ?? 'new' }]));
     const lists = ok(mine)
       .filter((r) => r.lists)
       .map((r) => ({ ...r.lists, role: r.role, live: liveBy.get(r.lists.id) ?? null }))

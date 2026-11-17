@@ -297,7 +297,7 @@ test('drawer: tab opens it, full view widens it, Escape closes it, Save pill sho
   assert.ok(q('.drawer .tabs .tab'));
   assert.match(q('.drawer .cm').textContent, /Housewarming/);
   assert.match(q('.drawer .cm').textContent, /Save this page/);
-  [...d.shadow.querySelectorAll('.dhead button')].find((b) => b.textContent === 'Full view').click();
+  [...d.shadow.querySelectorAll('.dhead button')].find((b) => b.getAttribute('aria-label') === 'Full view').click();
   assert.ok(q('.drawer').classList.contains('full') && q('.drawer .cm').classList.contains('wide'));
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
   assert.ok(!d.isOpen() && !q('.drawer').classList.contains('full'));
@@ -468,5 +468,46 @@ test('remove an item: straight away if untouched, asks first when it has votes o
   assert.equal(posts().length, start - 1, 'removed after confirming');
   const quiet = posts().find((p) => !busy(p));
   if (quiet) { rm(quiet); await tick(120); assert.ok(!root().querySelector('[role="alertdialog"]'), 'no modal when nothing is attached'); assert.equal(posts().length, start - 2); }
+  await app.destroy();
+});
+
+test('party chat shows saved items as cards you can vote and comment on, kept on the list', async () => {
+  const store = createMockStore();
+  const page = document.getElementById('page');
+  const p = CATALOG.find((c) => c.slug === 'cotton-throw');
+  const bar = await mountPartyBar({ store, listId: 'l1', partyId: 'pa1', parent: page, position: 'absolute', shadowMode: 'open', getProduct: () => ({ ...p }) });
+  const q = (sel) => bar.shadow.querySelector(sel);
+  [...bar.shadow.querySelectorAll('button')].find((b) => b.textContent.startsWith('Save item')).click();
+  await tick(80);
+  [...bar.shadow.querySelectorAll('button')].find((b) => b.textContent.startsWith('Chat')).click();
+  await tick(40);
+  const card = [...bar.shadow.querySelectorAll('.entry-item')].find((c) => /Cotton throw/.test(c.textContent));
+  assert.ok(card, 'the saved item appears in the chat as a card');
+  card.querySelector('.vote.up').click(); await tick(80);
+  const again = () => [...bar.shadow.querySelectorAll('.entry-item')].find((c) => /Cotton throw/.test(c.textContent));
+  assert.equal(again().querySelector('.score').textContent, '1', 'upvote counted');
+  again().querySelector('.ctoggle').click(); await tick(20);
+  const input = again().querySelector('input[data-k]');
+  input.value = 'Love the colour';
+  again().querySelector('form').requestSubmit(); await tick(120);
+  assert.match(again().textContent, /Love the colour/);
+  const ctx = await store.loadContext('l1', 'pa1');
+  const saved = ctx.items.find((i) => i.product.url === p.url);
+  assert.equal(saved.reactions.length, 1, 'the vote is on the list item');
+  assert.equal(saved.comments.length, 1, 'the comment is on the list item');
+  await bar.destroy();
+});
+
+test('rejoin shows only after you leave; ending a party drops it from the live list', async () => {
+  const { app, store } = await boot();
+  let home = await store.loadHome();
+  assert.equal(home.lists.find((l) => l.id === 'l1').live.me, 'in');
+  await store.leaveParty('pa1');
+  home = await store.loadHome();
+  assert.equal(home.lists.find((l) => l.id === 'l1').live.me, 'left');
+  await store.enterParty('pa1');
+  await store.endParty('pa1');
+  home = await store.loadHome();
+  assert.equal(home.lists.find((l) => l.id === 'l1').live, null, 'ended parties are not live any more');
   await app.destroy();
 });

@@ -1,4 +1,4 @@
-import { h, saveIcon, logoMark } from '../lib/dom.js';
+import { h, saveIcon, logoMark, wordmark, expandIcon, collapseIcon, closeIcon } from '../lib/dom.js';
 import { createApp } from './app.js';
 import { createSaveCard } from './save.js';
 
@@ -22,8 +22,10 @@ const DRAWER_CSS = `
 .root > * { pointer-events: auto; }
 .dock { position: absolute; right: 0; top: 38%; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .root.open .dock, .root.saving .dock { display: none; }
-.edge { display: inline-flex; align-items: center; gap: 10px; writing-mode: vertical-rl; padding: 16px 9px 16px 8px; border: 0; border-radius: 14px 0 0 14px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); font: 600 14px var(--display, Georgia, serif); letter-spacing: 0.08em; cursor: pointer; box-shadow: -3px 6px 18px rgba(43,35,29,.26); transition: padding .15s ease; }
+.edge { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 9px 16px 9px; border: 0; border-radius: 14px 0 0 14px; background: var(--accent, #93643a); color: var(--accent-ink, #fff); font: 600 14px var(--display, Georgia, serif); letter-spacing: 0.08em; cursor: pointer; box-shadow: -3px 6px 18px rgba(43,35,29,.26); transition: padding .15s ease; }
 .edge svg { display: block; }
+.edge-text { writing-mode: vertical-rl; }
+.wordmark { display: inline-block; white-space: nowrap; line-height: 1; }
 .edge:hover { padding-right: 14px; }
 @media (prefers-reduced-motion: reduce) { .edge { transition: none; } }
 .pill-save { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px 9px 16px; border: 1px solid var(--line, #e9ddcf); border-right: 0; border-radius: 999px 0 0 999px; background: var(--surface, #fffdf9); color: var(--ink, #2b231d); font: 600 13px var(--body, system-ui, sans-serif); cursor: pointer; box-shadow: -3px 6px 18px rgba(43,35,29,.2); }
@@ -36,6 +38,8 @@ const DRAWER_CSS = `
 .dhead b { font: 600 16px var(--display, Georgia, serif); color: var(--ink, #2b231d); letter-spacing: 0.01em; }
 .dhead .acts { display: flex; gap: 4px; }
 .dhead button, .pop .cm .iconbtn { cursor: pointer; }
+.dhead .ibtn { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; }
+.dhead [data-tip]::after { top: calc(100% + 6px); right: 0; }
 .dhead button { padding: 5px 10px; border: 1px solid var(--line, #e9ddcf); border-radius: 10px; background: var(--surface, #fffdf9); color: var(--ink, #2b231d); font: 13px var(--body, system-ui, sans-serif); }
 .dhead button:hover { border-color: var(--accent, #93643a); color: var(--accent, #93643a); }
 .dhead button:focus-visible, .edge:focus-visible, .pill-save:focus-visible { outline: 2px solid var(--accent, #93643a); outline-offset: 2px; }
@@ -73,12 +77,12 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
   let destroyed = false;
 
   const appRoot = h('div', { class: 'cm' });
-  const expandBtn = h('button', { type: 'button', 'aria-pressed': 'false', onClick: () => setFull(!full) }, 'Full view');
-  const closeBtn = h('button', { type: 'button', 'aria-label': 'Close Cartmates', onClick: () => close() }, 'Close');
-  const hang = h('button', { class: 'hang', type: 'button', hidden: true, 'aria-label': 'Save this product', title: 'Save this product', onClick: () => hangSave() }, logoMark(26), h('span', { class: 'hang-label' }, 'Save this product'));
+  const expandBtn = h('button', { class: 'ibtn', type: 'button', 'aria-pressed': 'false', 'aria-label': 'Full view', 'data-tip': 'Full view', onClick: () => setFull(!full) }, expandIcon(18));
+  const closeBtn = h('button', { class: 'ibtn', type: 'button', 'aria-label': 'Close Cartmates', 'data-tip': 'Close', onClick: () => close() }, closeIcon(18));
+  const hang = h('button', { class: 'hang', type: 'button', hidden: true, 'aria-label': 'Save this product', title: 'Save this product', onClick: () => hangSave() }, saveIcon(26), h('span', { class: 'hang-label' }, 'Save this product'));
   const toastEl = h('div', { class: 'toast', role: 'status', hidden: true });
   const drawer = h('aside', { class: 'drawer', 'aria-label': 'Cartmates' },
-    h('div', { class: 'dhead' }, h('b', { class: 'brand' }, logoMark(22), 'Cartmates'), h('span', { class: 'acts' }, expandBtn, closeBtn)),
+    h('div', { class: 'dhead' }, h('b', { class: 'brand' }, wordmark(20)), h('span', { class: 'acts' }, expandBtn, closeBtn)),
     appRoot, hang, toastEl);
 
   const card = createSaveCard({
@@ -90,7 +94,7 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
 
   const saveBtn = h('button', { class: 'pill-save', type: 'button', hidden: true, 'aria-label': 'Save this product to a Cartmates list', onClick: () => openSave() }, 'Save');
   const liveBtn = h('button', { class: 'pill-live', type: 'button', hidden: true, 'aria-label': 'Go live: start a shopping party', onClick: () => goLive() }, h('i'), 'Go live');
-  const tab = h('button', { class: 'edge', type: 'button', 'aria-label': 'Open Cartmates', onClick: () => open() }, logoMark(20), 'Cartmates');
+  const tab = h('button', { class: 'edge', type: 'button', 'aria-label': 'Open Cartmates', onClick: () => open() }, logoMark(26), h('span', { class: 'edge-text' }, 'artmates'));
   const root = h('div', { class: `root ${position === 'absolute' ? 'abs' : ''}`.trim() }, h('div', { class: 'dock' }, liveBtn, saveBtn, tab), drawer, pop);
   shadow.append(root);
   parent.append(host);
@@ -156,7 +160,10 @@ export function mountDrawer({ store, getProduct, css = '', parent = document.doc
     if (remember) store.setFlag?.('drawerFull', next)?.catch?.(() => {});
     drawer.classList.toggle('full', full);
     appRoot.classList.toggle('wide', full);
-    expandBtn.textContent = full ? 'Side view' : 'Full view';
+    const label = full ? 'Side view' : 'Full view';
+    expandBtn.replaceChildren(full ? collapseIcon(18) : expandIcon(18));
+    expandBtn.setAttribute('aria-label', label);
+    expandBtn.dataset.tip = label;
     expandBtn.setAttribute('aria-pressed', String(full));
   }
   async function openSave(listId) {

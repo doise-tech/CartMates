@@ -1,4 +1,5 @@
-import { h, avatar, ago } from '../lib/dom.js';
+import { h, avatar, ago, thumb, arrow, bubbleIcon } from '../lib/dom.js';
+import { money } from '../lib/split.js';
 
 // The bar that sits at the bottom of a shopping page while you are in a live party:
 // who is here, chat, and a Save item button. It lives in a shadow root so the shop's
@@ -36,10 +37,28 @@ button.primary:hover { background: var(--b-accent); filter: brightness(1.06); }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--b-accent); outline-offset: 2px; }
 .badge { position: absolute; top: -7px; right: -7px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--b-danger); color: #fff; font-size: 10px; line-height: 17px; text-align: center; font-weight: 700; }
 .panel { margin-bottom: 8px; overflow: hidden; }
-.log { height: 210px; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.log { height: 320px; max-height: 55vh; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .msg { max-width: 85%; padding: 6px 11px; border-radius: 14px; background: var(--b-soft); overflow-wrap: anywhere; }
 .msg.me { align-self: flex-end; }
 .msg small { display: block; color: var(--b-ink2); font-size: 11px; }
+.entry-item { align-self: stretch; padding: 10px; border: 1px solid var(--b-line); border-radius: 14px; background: var(--b-bg); display: flex; flex-direction: column; gap: 8px; }
+.entry-item small { color: var(--b-ink2); font-size: 11px; }
+.crow { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.crow .mini { width: 56px; height: 56px; border-radius: 10px; object-fit: contain; background: var(--b-soft); flex: none; }
+.crow .tile { width: 56px; height: 56px; border-radius: 10px; flex: none; }
+.ctext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ctitle { font: 600 14px Georgia, "Iowan Old Style", Palatino, serif; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.cacts { display: flex; align-items: center; gap: 8px; }
+.votes { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--b-line); border-radius: 999px; padding: 1px 4px; }
+button.vote, button.ctoggle { border: 0; background: transparent; padding: 0; color: var(--b-ink2); display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; }
+button.vote:hover, button.ctoggle:hover { background: var(--b-soft); color: var(--b-accent); }
+button.vote[aria-pressed="true"] { color: var(--b-accent); background: var(--b-soft); }
+button.vote.down[aria-pressed="true"] { color: var(--b-danger); background: transparent; }
+button.ctoggle { width: auto; padding: 0 9px; gap: 5px; grid-auto-flow: column; font-size: 12px; }
+.score { min-width: 18px; text-align: center; font-weight: 600; font-size: 12px; }
+.cthread { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--b-line); padding-top: 8px; }
+.cthread .c { overflow-wrap: anywhere; }
+.cthread form { display: flex; gap: 6px; }
 .compose { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--b-line); }
 input { flex: 1; min-width: 0; font: inherit; padding: 7px 11px; border: 1px solid var(--b-line); border-radius: 10px; color: var(--b-ink); background: var(--b-bg); }
 .toast { width: fit-content; max-width: 100%; margin: 0 auto 8px; padding: 7px 12px; border-radius: 10px; background: var(--b-toast); color: var(--b-toast-ink); }
@@ -64,7 +83,7 @@ export async function mountPartyBar({ store, listId, partyId, getProduct, parent
   const shadow = host.attachShadow({ mode: shadowMode });
   shadow.append(h('style', null, CSS));
 
-  const st = { open: false, readAt: Date.now(), online: [], known: new Set(ctx.items.map((i) => i.id)), busy: false };
+  const st = { open: false, readAt: Date.now(), online: [], known: new Set(ctx.items.map((i) => i.id)), busy: false, drafts: new Map(), threads: new Set() };
   let toastTimer;
   let reloadTimer;
   let unsub = null;
@@ -97,6 +116,43 @@ export async function mountPartyBar({ store, listId, partyId, getProduct, parent
     toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2800);
   }
 
+  const partyItems = () => {
+    const since = Date.parse(ctx.party.started_at) - 1500;
+    return ctx.items.filter((i) => Date.parse(i.created_at) >= since);
+  };
+  const timeline = () => [
+    ...ctx.messages.map((m) => ({ at: Date.parse(m.created_at), m })),
+    ...partyItems().map((i) => ({ at: Date.parse(i.created_at), item: i })),
+  ].sort((a, b) => a.at - b.at);
+
+  const voteOf = (i) => { const r = i.reactions.find((x) => x.user_id === user.id); return r ? (r.type === 'down' ? 'down' : 'up') : null; };
+  const scoreOf = (i) => i.reactions.reduce((n, r) => n + (r.type === 'down' ? -1 : 1), 0);
+  const act = async (fn) => { try { await fn(); await reload(); } catch (e) { toast(`Didn't work. ${e.message}`); } };
+
+  // A saved item shows up in the chat as a card the whole party can vote on and comment on.
+  // Votes and comments belong to the item itself, so they are already on the list when the party ends.
+  function itemCard(i) {
+    const mine = voteOf(i);
+    const open = st.threads.has(i.id);
+    const comments = i.comments || [];
+    const price = i.price_at_save ?? i.product.price;
+    const card = h('div', { class: 'entry-item', 'data-item': i.id },
+      h('small', null, `${nameOf(i.added_by)} saved this · ${ago(i.created_at)}`),
+      h('div', { class: 'crow' }, thumb(i.product, 'mini'), h('div', { class: 'ctext' }, h('span', { class: 'ctitle' }, i.product.title), price != null ? h('small', null, money(price, i.currency_at_save || i.product.currency || 'INR')) : null, i.variant ? h('small', null, i.variant) : null)),
+      h('div', { class: 'cacts' },
+        h('span', { class: 'votes', role: 'group', 'aria-label': 'Vote' },
+          h('button', { class: 'vote up', type: 'button', 'aria-pressed': String(mine === 'up'), 'aria-label': 'Upvote', onClick: () => act(() => store.vote(i.id, 'up')) }, arrow(true, mine === 'up')),
+          h('span', { class: 'score' }, String(scoreOf(i))),
+          h('button', { class: 'vote down', type: 'button', 'aria-pressed': String(mine === 'down'), 'aria-label': 'Downvote', onClick: () => act(() => store.vote(i.id, 'down')) }, arrow(false, mine === 'down'))),
+        h('button', { class: 'ctoggle', type: 'button', 'aria-expanded': String(open), 'aria-label': `${comments.length} comments`, onClick: () => { if (open) st.threads.delete(i.id); else st.threads.add(i.id); update(); } }, bubbleIcon(), String(comments.length))),
+      open ? h('div', { class: 'cthread' },
+        ...comments.map((c) => h('div', { class: 'c' }, h('b', null, nameOf(c.user_id)), ` ${c.body}`)),
+        h('form', { onSubmit: (e) => { e.preventDefault(); const f = e.target.elements.text; const body = f.value.trim(); if (!body) return; f.value = ''; st.drafts.delete(`c:${i.id}`); act(() => store.addComment(i.id, body)); } },
+          h('input', { name: 'text', type: 'text', placeholder: 'Comment', 'aria-label': 'Comment', maxlength: '1000', 'data-k': `c:${i.id}` }),
+          h('button', { class: 'primary', type: 'submit' }, 'Post'))) : null);
+    return card;
+  }
+
   function update() {
     const here = new Set(st.online.length ? st.online : ctx.here.filter((r) => !r.left_at).map((r) => r.user_id));
     here.add(user.id);
@@ -105,7 +161,7 @@ export async function mountPartyBar({ store, listId, partyId, getProduct, parent
     const ordered = [...ctx.members].sort((a, b) => Number(here.has(b.user_id)) - Number(here.has(a.user_id)));
     stackEl.replaceChildren(...ordered.slice(0, 5).map((m) => avatar(m.profile, 26, here.has(m.user_id) ? 'here' : 'away')));
 
-    const unread = st.open ? 0 : ctx.messages.filter((m) => m.user_id !== user.id && Date.parse(m.created_at) > st.readAt).length;
+    const unread = st.open ? 0 : ctx.messages.filter((m) => m.user_id !== user.id && Date.parse(m.created_at) > st.readAt).length + partyItems().filter((i) => i.added_by !== user.id && Date.parse(i.created_at) > st.readAt).length;
     badge.hidden = !unread;
     badge.textContent = unread > 9 ? '9+' : String(unread);
     chatBtn.setAttribute('aria-expanded', String(st.open));
@@ -113,12 +169,19 @@ export async function mountPartyBar({ store, listId, partyId, getProduct, parent
 
     if (st.open) {
       const nearEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-      log.replaceChildren(...(ctx.messages.length
-        ? ctx.messages.map((m) => {
+      for (const el of log.querySelectorAll('input[data-k]')) st.drafts.set(el.dataset.k, el.value);
+      const focusKey = shadow.activeElement?.dataset?.k;
+      const rows = timeline();
+      log.replaceChildren(...(rows.length
+        ? rows.map((r) => {
+            if (r.item) return itemCard(r.item);
+            const m = r.m;
             const item = m.item_id && ctx.items.find((i) => i.id === m.item_id);
             return h('div', { class: `msg ${m.user_id === user.id ? 'me' : ''}`.trim() }, h('small', null, `${nameOf(m.user_id)} · ${ago(m.created_at)}${item ? ` · about ${item.product.title}` : ''}`), m.body);
           })
-        : [h('div', { class: 'msg' }, 'No messages yet. Say hi.')]));
+        : [h('div', { class: 'msg' }, 'No messages yet. Say hi, or save something.')]));
+      for (const el of log.querySelectorAll('input[data-k]')) if (st.drafts.has(el.dataset.k)) el.value = st.drafts.get(el.dataset.k);
+      if (focusKey) log.querySelector(`input[data-k="${focusKey}"]`)?.focus({ preventScroll: true });
       if (nearEnd || !log.dataset.seen) log.scrollTop = log.scrollHeight;
       log.dataset.seen = '1';
     }
@@ -127,7 +190,7 @@ export async function mountPartyBar({ store, listId, partyId, getProduct, parent
   async function reload() {
     if (gone) return;
     ctx = await store.loadContext(listId, partyId);
-    if (ctx.party?.status !== 'live') return finish('This party ended');
+    if (ctx.party?.status !== 'live') return finish(`This party ended. Everything is saved in ${ctx.list.name}.`);
     for (const i of ctx.items) {
       if (!st.known.has(i.id) && i.added_by !== user.id) toast(`${nameOf(i.added_by)} saved ${i.product.title.slice(0, 60)}`);
       st.known.add(i.id);

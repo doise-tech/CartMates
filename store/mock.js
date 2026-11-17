@@ -105,7 +105,12 @@ export function createMockStore({ signedIn = true } = {}) {
   const party = (id) => db.parties.find((p) => p.id === id);
   const itemById = (id) => Object.values(db.items).flat().find((i) => i.id === id);
   const isOwner = (listId) => (db.members[listId] || []).some((m) => m.user_id === user.id && m.role === 'owner');
-  const livePartyFor = (listId) => db.parties.find((p) => p.list_id === listId && p.status === 'live') || null;
+  const livePartyFor = (listId) => {
+    const p = db.parties.find((x) => x.list_id === listId && x.status === 'live');
+    if (!p) return null;
+    const row = user && (db.here[p.id] || []).find((r) => r.user_id === user.id);
+    return { ...p, me: row ? (row.left_at ? 'left' : 'in') : 'new' };
+  };
   const addMember = (listId, id, role = 'member') => {
     db.members[listId] = db.members[listId] || [];
     if (!db.members[listId].some((m) => m.user_id === id)) db.members[listId].push(member(id, role, new Date().toISOString()));
@@ -485,7 +490,7 @@ export function createMockStore({ signedIn = true } = {}) {
         emit();
       },
       endLiveParty() {
-        const p = livePartyFor('l1');
+        const p = db.parties.find((x) => x.list_id === 'l1' && x.status === 'live');
         if (p) { p.status = 'ended'; p.ended_at = new Date().toISOString(); emit(); }
       },
     },

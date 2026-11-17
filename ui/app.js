@@ -1,5 +1,5 @@
 import { shareBlock } from './share.js';
-import { h, safeUrl, avatar, ago, thumb, heart, arrow, bubbleIcon, confettiIcon, shareIcon, trashIcon, linkIcon } from '../lib/dom.js';
+import { h, safeUrl, avatar, ago, thumb, heart, arrow, bubbleIcon, confettiIcon, shareIcon, trashIcon, linkIcon, cartIcon, wordmark } from '../lib/dom.js';
 import { money, total, lineMinor, fromMinor, splitEqual, splitByClaim, settleUp } from '../lib/split.js';
 
 // Every popup screen lives here. The screens talk only to `store`, so the same code runs
@@ -9,10 +9,10 @@ const IN_CART = ['in_cart', 'claimed', 'bought'];
 const STATUS = { saved: 'Saved', in_cart: 'In cart', claimed: 'Claimed', bought: 'Bought' };
 const ONBOARDING = ['welcome', 'signin', 'signup', 'forgot', 'checkEmail', 'permissions'];
 const MAIN = ['home', 'party', 'cart'];
-const REMEMBER = ['home', 'list', 'item', 'party', 'cart', 'notifications', 'settings', 'profile', 'notifPrefs', 'history'];
+const REMEMBER = ['home', 'list', 'item', 'party', 'cart', 'listCart', 'notifications', 'settings', 'profile', 'notifPrefs', 'history'];
 const TITLES = {
   newList: 'New list', startParty: 'Start a party', invite: 'Invite friends', join: 'Join with a code', share: 'Share list', joined: "You're in",
-  notifications: 'Activity', settings: 'Settings', profile: 'Profile', notifPrefs: 'Notifications', history: 'Past parties',
+  listCart: 'Cart', notifications: 'Activity', settings: 'Settings', profile: 'Profile', notifPrefs: 'Notifications', history: 'Past parties',
 };
 const SLIDES = [
   { title: 'Shop together', body: 'Browse any shop with your friends. See who is online and what they save, live.' },
@@ -121,7 +121,7 @@ export function createApp(root, store, opts = {}) {
 
   async function restoreNav(nav) {
     if (!nav || !REMEMBER.includes(nav.name) || nav.name === 'home') return;
-    const withList = ['list', 'party', 'cart', 'item'];
+    const withList = ['list', 'party', 'cart', 'item', 'listCart'];
     if (withList.includes(nav.name)) {
       if (!nav.listId || !S.lists.some((l) => l.id === nav.listId)) return;
       if (S.listId !== nav.listId) await openList(nav.listId);
@@ -157,7 +157,7 @@ export function createApp(root, store, opts = {}) {
       await setActive(null);
       S.partyId = null;
       S.ctx.party = null;
-      S.msg = { text: 'The party ended. Your list is still here.', err: false };
+      S.msg = { text: `The party ended. Everything from it is saved in ${S.ctx?.list?.name || 'your list'}.`, err: false };
       await resubscribe();
     }
     if (S.splitWith) S.splitWith = S.splitWith.filter((id) => S.ctx.members.some((m) => m.user_id === id));
@@ -197,6 +197,9 @@ export function createApp(root, store, opts = {}) {
     S.thread = await store.loadThread(id);
     go('item', { itemId: id });
   }
+
+  // Rejoin shows only once you have left; someone who never joined sees Join in.
+  const joinLabel = (party) => (S.active?.partyId === party.id || party.me === 'in' ? 'Back to the party' : party.me === 'left' ? 'Rejoin' : 'Join in');
 
   async function enterParty(party) {
     await store.enterParty(party.id);
@@ -260,12 +263,12 @@ export function createApp(root, store, opts = {}) {
     if (r === 'boot') return null;
     if (ONBOARDING.includes(r)) {
       const canBack = r === 'signin' || r === 'signup' || r === 'forgot' || r === 'checkEmail';
-      return h('div', { class: 'top' }, canBack ? h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '←') : null, h('span', { class: 'brand' }, h('i'), 'cartmates'));
+      return h('div', { class: 'top' }, canBack ? h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Back', onClick: back }, '←') : null, h('span', { class: 'brand' }, wordmark(18)));
     }
     if (MAIN.includes(r)) {
       const n = unreadCount();
       return h('div', { class: 'top' },
-        h('span', { class: 'brand' }, h('i'), 'cartmates'),
+        h('span', { class: 'brand' }, wordmark(18)),
         h('span', { class: 'row' },
           h('button', { class: 'iconbtn bell', type: 'button', 'aria-label': n ? `Activity, ${n} new` : 'Activity', onClick: () => go('notifications') }, 'Activity', n ? h('span', { class: 'badge' }, n > 9 ? '9+' : n) : null),
           h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Settings', onClick: () => go('settings') }, 'Settings')));
@@ -273,7 +276,7 @@ export function createApp(root, store, opts = {}) {
     const title = r === 'list' ? listName() : r === 'item' ? 'Item' : TITLES[r] || '';
     if (r === 'list' && S.ctx) {
       const c = S.ctx;
-      const live = inParty() ? 'Open party' : c.liveParty ? 'Join the live party' : 'Start a party';
+      const live = inParty() ? 'Open party' : c.liveParty ? (S.lists.find((l) => l.id === c.list.id)?.live?.me === 'left' ? 'Rejoin the party' : 'Join the live party') : 'Start a party';
       const party = () => { if (inParty()) tab('party'); else if (c.liveParty) run(async () => { await enterParty(c.liveParty); go('party', {}, 'root'); }); else go('startParty'); };
       const tip = (label, icon, onClick, extra = '') => h('button', { class: `iconbtn tipbtn ${extra}`.trim(), type: 'button', 'aria-label': label, 'data-tip': label, onClick }, icon);
       return h('div', { class: 'top' },
@@ -393,7 +396,7 @@ export function createApp(root, store, opts = {}) {
         live.map((l) => h('div', { class: 'card live col' },
           h('div', { class: 'row sp' }, h('b', null, l.live.label || l.name), h('span', { class: 'pill live' }, 'live')),
           h('span', { class: 'sub' }, `On ${l.name}`),
-          btn(S.active?.partyId === l.live.id ? 'Back to the party' : 'Join in', () => run(async () => { await enterParty(l.live); go('party', {}, 'root'); }), 'small primary')))) : null,
+          btn(joinLabel(l.live), () => run(async () => { await enterParty(l.live); go('party', {}, 'root'); }), 'small primary')))) : null,
       h('div', { class: 'col' },
         h('span', { class: 'label' }, 'Your lists'),
         S.lists.length
@@ -493,12 +496,14 @@ export function createApp(root, store, opts = {}) {
     const c = S.ctx;
     if (!c) return h('div', { class: 'body' }, h('div', { class: 'empty' }, h('h3', null, 'List unavailable'), btn('Back to lists', () => go('home', {}, 'root'))));
     const tagName = (id) => c.tags.find((t) => t.id === id)?.name;
-    const shown = c.items.filter((i) => S.filter === 'all' || (S.filter === 'cart' ? IN_CART.includes(i.status) : i.tag_ids.includes(S.filter)));
+    const shown = c.items.filter((i) => S.filter === 'all' || i.tag_ids.includes(S.filter));
+    const cartCount = c.items.filter((i) => IN_CART.includes(i.status)).length;
     const feed = S.sort === 'top' ? shown.slice().sort((a, b) => scoreOf(b) - scoreOf(a) || Date.parse(b.created_at) - Date.parse(a.created_at)) : shown;
     return h('div', { class: 'body' },
-      h('div', { class: 'row sp wrap' },
-        h('div', { class: 'chips' }, [['all', 'All'], ...c.tags.map((t) => [t.id, t.name]), ['cart', 'In cart']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.filter === key), onClick: () => { S.filter = key; render(); } }, label))),
-        h('div', { class: 'chips', role: 'group', 'aria-label': 'Sort' }, [['new', 'Newest'], ['top', 'Top voted']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.sort === key), onClick: () => { S.sort = key; render(); } }, label)))),
+      h('div', { class: 'row sp' },
+        h('div', { class: 'chips', role: 'group', 'aria-label': 'Sort' }, [['new', 'Newest'], ['top', 'Top voted']].map(([key, label]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.sort === key), onClick: () => { S.sort = key; render(); } }, label))),
+        h('button', { class: 'iconbtn tipbtn cartbtn', type: 'button', 'aria-label': `Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`, 'data-tip': 'Cart', onClick: () => go('listCart') }, cartIcon(20), cartCount ? h('span', { class: 'badge' }, cartCount > 9 ? '9+' : cartCount) : null)),
+      c.tags.length ? h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by tag' }, c.tags.map((t) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(S.filter === t.id), onClick: () => { S.filter = S.filter === t.id ? 'all' : t.id; render(); } }, t.name))) : null,
       shown.length
         ? h('div', { class: 'feed' }, feed.map(feedPost))
         : h('div', { class: 'empty' }, h('h3', null, c.items.length ? 'Nothing here' : 'Nothing saved yet'), h('p', null, c.items.length ? 'Try a different filter.' : 'Open a shop and press the Save tab hanging off the drawer. Everyone on the list can vote and comment on what you add.')),
@@ -686,7 +691,7 @@ export function createApp(root, store, opts = {}) {
       return h('div', { class: 'body' },
         h('div', { class: 'empty' }, h('h3', null, 'No live party'), h('p', null, 'Start one for a list, or join a friend with their code.')),
         h('div', { class: 'row' }, btn('Start a party', () => go('startParty'), 'primary grow'), btn('Join with a code', () => go('join'), 'grow')),
-        live.length ? h('div', { class: 'col' }, h('span', { class: 'label' }, 'Live on your lists'), live.map((l) => h('div', { class: 'card row sp' }, h('span', { class: 'col tight' }, h('b', null, l.live.label || l.name), h('span', { class: 'sub' }, l.name)), btn('Join in', () => run(async () => { await enterParty(l.live); go('party', {}, 'root'); }), 'small primary')))) : null);
+        live.length ? h('div', { class: 'col' }, h('span', { class: 'label' }, 'Live on your lists'), live.map((l) => h('div', { class: 'card row sp' }, h('span', { class: 'col tight' }, h('b', null, l.live.label || l.name), h('span', { class: 'sub' }, l.name)), btn(joinLabel(l.live), () => run(async () => { await enterParty(l.live); go('party', {}, 'root'); }), 'small primary')))) : null);
     }
     const here = new Set(onlineIds());
     const saved = c.items.length;
@@ -704,7 +709,7 @@ export function createApp(root, store, opts = {}) {
       h('div', { class: 'row' },
         btn('Leave party', () => run(async () => { await store.leaveParty(S.partyId); await setActive(null); S.partyId = null; await openList(c.list.id, null); go('home', {}, 'root'); })),
         host ? (S.confirmEnd
-          ? btn('Tap again to end for everyone', () => run(async () => { await store.endParty(S.partyId); await setActive(null); S.partyId = null; await openList(c.list.id, null); await refreshHome(); go('list', {}, 'root'); }), 'danger')
+          ? btn('Tap again to end for everyone', () => run(async () => { await store.endParty(S.partyId); await setActive(null); S.partyId = null; await openList(c.list.id, null); await refreshHome(); go('list', {}, 'root'); S.msg = { text: `Party ended. Everything from it, with its votes and comments, is saved in ${c.list.name}.`, err: false }; render(); }), 'danger')
           : btn('End party', () => { S.confirmEnd = true; render(); }, 'danger')) : null));
   }
 
@@ -820,7 +825,7 @@ export function createApp(root, store, opts = {}) {
 
   // ------------------------------------------------------------------ render
 
-  const SCREENS = { forgot, checkEmail, share: shareScreen, welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, notifications, settings, profile, notifPrefs, history };
+  const SCREENS = { forgot, checkEmail, share: shareScreen, welcome, signin: () => authForm(false), signup: () => authForm(true), permissions, home, newList, list: listScreen, item: itemScreen, startParty, invite, join, joined, party: partyScreen, cart: cartScreen, listCart: cartScreen, notifications, settings, profile, notifPrefs, history };
 
   function render() {
     const build = SCREENS[S.route.name];
